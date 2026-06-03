@@ -1,0 +1,68 @@
+#include "ros2_stm32_bridge/ipc_client.hpp"
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+#include <cstring>
+#include <iostream>
+
+IpcClient::IpcClient(const std::string& socketPath)
+    : socketPath_(socketPath),
+      socketFd_(-1)
+{
+}
+
+IpcClient::~IpcClient()
+{
+    if (socketFd_ >= 0) {
+        close(socketFd_);
+    }
+}
+
+bool IpcClient::connectToServer()
+{
+    socketFd_ = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (socketFd_ < 0) {
+        perror("socket");
+        return false;
+    }
+
+    sockaddr_un addr;
+    std::memset(&addr, 0, sizeof(addr));
+
+    addr.sun_family = AF_UNIX;
+
+    std::strncpy(
+        addr.sun_path,
+        socketPath_.c_str(),
+        sizeof(addr.sun_path) - 1);
+
+    if (connect(
+            socketFd_,
+            reinterpret_cast<sockaddr*>(&addr),
+            sizeof(addr)) < 0) {
+        perror("connect");
+        close(socketFd_);
+        socketFd_ = -1;
+        return false;
+    }
+
+    return true;
+}
+
+std::string IpcClient::readLine()
+{
+    char buffer[1024];
+    std::memset(buffer, 0, sizeof(buffer));
+
+    ssize_t bytesRead =
+        read(socketFd_, buffer, sizeof(buffer) - 1);
+
+    if (bytesRead > 0) {
+        return std::string(buffer);
+    }
+
+    return "";
+}
