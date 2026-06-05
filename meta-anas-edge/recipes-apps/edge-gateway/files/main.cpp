@@ -107,8 +107,15 @@ int main()
                         std::to_string(data.unwrap().humidity) +
                         ",\"load\":" +
                         std::to_string(data.unwrap().load) +
+                        ",\"load_status\":" +
+                        data.unwrap().load_status +
+                        ",\"dht_status\":" +
+                        data.unwrap().dht_status +
+                        ",\"operating_mode\":" +
+                        data.unwrap().operating_mode +
+                        ",\"fault\":" +
+                        data.unwrap().fault +
                         "}\n";
-
                     ipcServer.broadcastLine(json);
                 }
                 else

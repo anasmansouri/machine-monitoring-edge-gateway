@@ -1,0 +1,35 @@
+# Yocto external layers / generated build
+poky/
+meta-raspberrypi/
+meta-openembedded/
+meta-ros/
+build/
+downloads/
+sstate-cache/
+tmp/
+
+# Yocto generated files
+*.wic
+*.wic.bz2
+*.wic.bmap
+*.tar.bz2
+*.ext3
+*.spdx.tar.zst
+*.testdata.json
+
+# STM32CubeIDE generated/cache files
+.metadata/
+Debug/
+Release/
+*.launch
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# editor/system
+.vscode/
+.idea/
+*.swp
+.DS_Store
