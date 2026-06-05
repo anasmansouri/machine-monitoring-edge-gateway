@@ -14,9 +14,11 @@ struct Telemetry{
     int temperature;
     int humidity;
     int load;
+    char machine_state[30];
+    char fault[30];
+    char operating_mode[30];
     char load_status[30];
     char dht_status[30];
-    char system_status[30];
 };
 class ProtocolParser{
     public:

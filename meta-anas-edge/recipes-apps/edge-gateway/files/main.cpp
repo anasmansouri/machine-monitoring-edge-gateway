@@ -65,22 +65,10 @@ int main()
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
-    int counter = 0;
-    bool led_on = 1;
     std::string cmd;
-    LED_STATE old_led_state = {LED_STATE::OFF};
-    LED_STATE current_led_state{LED_STATE::OFF};
     while (true)
     {
-        if (old_led_state == current_led_state)
-        {
-            cmd = "GET_STATUS";
-        }
-        else
-        {
-            old_led_state = current_led_state;
-        }
-
+        cmd = "GET_STATUS";
         if (!uartManager.writeLine(cmd))
         {
             log << "writing fail " << std::endl
@@ -106,10 +94,11 @@ int main()
             }
             else if (protocolParser.isStatus(response.unwrap()).unwrap())
             {
+                log<<"receive status response"<<std::endl;
                 cc::utils::Result<cc::manager::Telemetry> data = protocolParser.parseStatus(response.unwrap());
                 if (data)
                 {
-                    log << "temperature : " << data.unwrap().temperature << " humidity : " << data.unwrap().humidity << "load : " << data.unwrap().load << "%" << "dht status : " << data.unwrap().dht_status << "load status : " << data.unwrap().load_status << "system status : " << data.unwrap().system_status << std::endl
+                    log << "temperature : " << data.unwrap().temperature << " humidity : " << data.unwrap().humidity << "load : " << data.unwrap().load << "%" << "dht status : " << data.unwrap().dht_status << "load status : " << data.unwrap().load_status <<"state : "<<data.unwrap().machine_state<<"operating mode : "<<data.unwrap().operating_mode<<"fault : "<<data.unwrap().fault<< std::endl
                         << std::flush;
                     std::string json =
                         "{\"type\":\"sensor_data\",\"temperature\":" +
@@ -121,33 +110,11 @@ int main()
                         "}\n";
 
                     ipcServer.broadcastLine(json);
-                    if (data.unwrap().load > 75)
-                    {
-                        log << "LED needs to be RED" << std::endl
-                            << std::flush;
-                        cmd = "SET_LED:RED";
-                        current_led_state = LED_STATE::ON_RED;
-                    }
-                    else if (data.unwrap().load < 40)
-                    {
-                        log << "LED needs to be GREEN" << std::endl
-                            << std::flush;
-                        cmd = "SET_LED:GREEN";
-                        current_led_state = LED_STATE::ON_GREEN;
-                    }
-                    else
-                    {
-                        log << "LED needs to be YELLOW" << std::endl
-                            << std::flush;
-                        cmd = "SET_LED:YELLOW";
-                        current_led_state = LED_STATE::ON_YELLOW;
-                    }
                 }
                 else
                 {
                     log << "wlah ma3reft n parsi data" << std::endl
                         << std::flush;
-                    // cmd="SET_LED:OFF";
                 }
             }
         }

@@ -31,10 +31,12 @@ namespace cc::manager {
     }
 
     cc::utils::Result<Telemetry> ProtocolParser::parseStatus(std::string line){
-        Telemetry data;
-        // STATUS:TEMP=%d;HUM=%d;LOAD=%d;LOAD_STATUS=%s
-        int matched = std::sscanf(line.c_str(), "STATUS:TEMP=%d;HUM=%d;LOAD=%d;DHT_STATUS=%29[^;];LOAD_STATUS=%29[^;];SYSTEM_STATUS=%29[^;]", &(data.temperature), &(data.humidity),&(data.load),data.dht_status,data.load_status,data.system_status);
-        if(matched==6){
+        Telemetry data{};
+        std::string msg_format ="STATUS:TEMP=%d;HUM=%d;LOAD=%d;STATE=%29[^;];FAULT=%29[^;];OPERATING_MODE=%29[^;];DHT_STATUS=%29[^;];LOAD_STATUS=%29[^;]";
+        // int matched = std::sscanf(line.c_str(), "STATUS:TEMP=%d;HUM=%d;LOAD=%d;DHT_STATUS=%29[^;];LOAD_STATUS=%29[^;];SYSTEM_STATUS=%29[^;]", &(data.temperature), &(data.humidity),&(data.load),data.dht_status,data.load_status,data.system_status);
+
+        int matched = std::sscanf(line.c_str(), msg_format.c_str(), &(data.temperature), &(data.humidity),&(data.load),data.machine_state,data.fault,data.operating_mode,data.dht_status,data.load_status);
+        if(matched==8){
             return cc::utils::Result<Telemetry>::ok(data);
         }else{
             return cc::utils::Result<Telemetry>::fail(cc::utils::ErrorCode::ParseError,"can't parse data");
