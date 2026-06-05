@@ -9,6 +9,7 @@ public:
 
     bool connectToServer();
     std::string readLine();
+    bool writeLine(const std::string& line);
 
 private:
     std::string socketPath_;

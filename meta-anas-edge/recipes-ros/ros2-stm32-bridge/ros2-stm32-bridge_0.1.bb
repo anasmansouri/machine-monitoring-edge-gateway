@@ -13,11 +13,13 @@ DEPENDS += " \
     ament-cmake-native \
     rclcpp \
     std-msgs \
+    std-srvs \
 "
 
 RDEPENDS:${PN} += " \
     rclcpp \
     std-msgs \
+    std-srvs \
 "
 
 EXTRA_OECMAKE += " \

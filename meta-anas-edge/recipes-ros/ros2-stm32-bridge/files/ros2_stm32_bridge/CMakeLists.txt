@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 add_executable(stm32_bridge_node src/stm32_bridge_node.cpp src/ipc_client.cpp)
 target_include_directories(stm32_bridge_node PUBLIC
@@ -19,6 +20,7 @@ ament_target_dependencies(
   stm32_bridge_node
   "rclcpp"
   "std_msgs"
+  "std_srvs"
 )
 
 install(TARGETS stm32_bridge_node

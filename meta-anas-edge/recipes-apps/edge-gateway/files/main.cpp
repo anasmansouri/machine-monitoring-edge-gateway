@@ -18,10 +18,44 @@ enum class LED_STATE
     ON_RED,
     ON_GREEN
 };
+std::mutex uartMutex;
+std::ofstream log("/var/log/edge-gateway.log", std::ios::app);
+cc::manager::UartManager uartManager("/dev/ttyAMA0");
+    cc::manager::ProtocolParser protocolParser;
+    cc::manager::IpcServer ipcServer_telemetry("/tmp/stm32-gateway.sock");
+
+
+void handleIncomingIpcData(int clientFd, const std::string &message);
+    cc::manager::IpcServer ipcServer_command("/tmp/stm32-gateway-command.sock", handleIncomingIpcData);
+void handleIncomingIpcData(int clientFd, const std::string &message)
+{
+
+    log << "[Main App] Processing data from client " << clientFd << ": " << message << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(uartMutex);
+        std::string cmd_to_send{message};
+        if (!uartManager.writeLine(message))
+        {
+            log << "writing fail " << std::endl
+                << std::flush;
+        }
+        log << "PI Sent : " << cmd_to_send << std::endl
+            << std::flush;
+        cc::utils::Result<std::string> response = uartManager.readLine();
+        if (response)
+        {
+            log << "STM32 REPLIES : " << response.unwrap() << std::endl
+                << std::flush;
+            ipcServer_command.sendMsg(clientFd,response.unwrap());
+            
+        }
+    }
+}
+
+std::string command_to_send_back;
 int main()
 {
-    std::ofstream log("/var/log/edge-gateway.log", std::ios::app);
-    cc::manager::UartManager uartManager("/dev/ttyAMA0");
+
     if (!uartManager.openUartDevice())
     {
         return -1;
@@ -31,11 +65,11 @@ int main()
         return -1;
     }
     sleep(3);
-    cc::manager::ProtocolParser protocolParser;
-    // test
-    cc::manager::IpcServer ipcServer("/tmp/stm32-gateway.sock");
-
-    if (!ipcServer.start())
+    if (!ipcServer_telemetry.start())
+    {
+        return -1;
+    }
+    if (!ipcServer_command.start())
     {
         return -1;
     }
@@ -68,16 +102,28 @@ int main()
     std::string cmd;
     while (true)
     {
+        // double check , i need to specify the client 
+        /*{
+            std::lock_guard<std::mutex> lock(uartMutex);
+            if(!command_to_send_back.empty()){
+                 this->ipcServer_command.broadcastLine(command_to_send_back);
+                 command_to_send_back="";
+            }
+        }*/
         cmd = "GET_STATUS";
-        if (!uartManager.writeLine(cmd))
+        cc::utils::Result<std::string> response;
         {
-            log << "writing fail " << std::endl
-                << std::flush;
-        }
-        log << "PI Sent : " << cmd << std::endl
-            << std::flush;
-        cc::utils::Result<std::string> response = uartManager.readLine();
+            std::lock_guard<std::mutex> lock(uartMutex);
 
+            if (!uartManager.writeLine(cmd))
+            {
+                log << "writing fail " << std::endl
+                    << std::flush;
+            }
+            log << "PI Sent : " << cmd << std::endl
+                << std::flush;
+            response = uartManager.readLine();
+        }
         if (response)
         {
             log << "STM32 REPLIES : " << response.unwrap() << std::endl
@@ -94,12 +140,11 @@ int main()
             }
             else if (protocolParser.isStatus(response.unwrap()).unwrap())
             {
-                log<<"receive status response"<<std::endl;
+                // log<<"receive status response"<<std::endl;
                 cc::utils::Result<cc::manager::Telemetry> data = protocolParser.parseStatus(response.unwrap());
                 if (data)
                 {
-                    log << "temperature : " << data.unwrap().temperature << " humidity : " << data.unwrap().humidity << "load : " << data.unwrap().load << "%" << "dht status : " << data.unwrap().dht_status << "load status : " << data.unwrap().load_status <<"state : "<<data.unwrap().machine_state<<"operating mode : "<<data.unwrap().operating_mode<<"fault : "<<data.unwrap().fault<< std::endl
-                        << std::flush;
+                    // log << "temperature : " << data.unwrap().temperature << " humidity : " << data.unwrap().humidity << "load : " << data.unwrap().load << "%" << "dht status : " << data.unwrap().dht_status << "load status : " << data.unwrap().load_status <<"state : "<<data.unwrap().machine_state<<"operating mode : "<<data.unwrap().operating_mode<<"fault : "<<data.unwrap().fault<< std::endl<< std::flush;
                     std::string json =
                         "{\"type\":\"sensor_data\",\"temperature\":" +
                         std::to_string(data.unwrap().temperature) +
@@ -116,7 +161,7 @@ int main()
                         ",\"fault\":" +
                         data.unwrap().fault +
                         "}\n";
-                    ipcServer.broadcastLine(json);
+                    ipcServer_telemetry.broadcastLine(json);
                 }
                 else
                 {

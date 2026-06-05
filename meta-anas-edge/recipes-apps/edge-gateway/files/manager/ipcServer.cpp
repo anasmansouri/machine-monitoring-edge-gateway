@@ -8,8 +8,8 @@
 
 namespace cc::manager {
 
-IpcServer::IpcServer(std::string socketPath)
-    : socketPath_(std::move(socketPath))
+IpcServer::IpcServer(std::string socketPath ,MessageCallback callback)
+    : socketPath_(std::move(socketPath)),onMessageReceived_(std::move(callback))
 {
 }
 
@@ -66,6 +66,14 @@ void IpcServer::stop()
         close(serverFd_);
         serverFd_ = -1;
     }
+    //Close all connected clients to wake up and kill their threads
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex_);
+        for (int clientFd : clients_) {
+            close(clientFd); 
+        }
+        clients_.clear(); // Empty the vector
+    }
 
     if (acceptThread_.joinable()) {
         acceptThread_.join();
@@ -84,20 +92,51 @@ void IpcServer::acceptLoop()
             continue;
         }
 
+        {
         std::lock_guard lock(clientsMutex_);
 
         clients_.push_back(clientFd);
+        }
 
         std::cout
             << "IPC client connected"
             << std::endl;
+        std::thread(&IpcServer::readLoop, this, clientFd).detach();
     }
+}
+void IpcServer::readLoop(int clientFd){
+
+    while(this->running_){
+
+        char buffer[1024];
+        std::memset(buffer, 0, sizeof(buffer));
+
+        ssize_t bytesRead =
+            read(clientFd, buffer, sizeof(buffer) - 1);
+
+        if (bytesRead > 0) {
+            if(this->onMessageReceived_){
+                this->onMessageReceived_(clientFd,std::string(buffer));
+            }
+            std::cout<< "Client " << clientFd <<" "<<std::string(buffer)<<std::endl;
+        }else if(bytesRead==0){
+            std::cout << "Client " << clientFd << " disconnected cleanly." << std::endl;
+            break;
+        }else{
+            perror("read error");
+            break;
+        }
+
+        std::cout<<""<<std::endl;
+
+        }
+    this->closeClient(clientFd);
 }
 
 void IpcServer::closeClient(int clientFd)
 {
+    std::lock_guard lock(clientsMutex_); 
     close(clientFd);
-
     for (auto it = clients_.begin(); it != clients_.end(); ++it) {
         if (*it == clientFd) {
             clients_.erase(it);
@@ -129,6 +168,19 @@ bool IpcServer::broadcastLine(const std::string& line)
     }
 
     return true;
+}
+
+bool  IpcServer::sendMsg(int clientFd,const std::string& line){
+        ssize_t ret = send(
+            clientFd,
+            line.c_str(),
+            line.size(),
+            0);
+
+        if (ret < 0) {
+            return false;
+        }
+        return true;
 }
 
 }

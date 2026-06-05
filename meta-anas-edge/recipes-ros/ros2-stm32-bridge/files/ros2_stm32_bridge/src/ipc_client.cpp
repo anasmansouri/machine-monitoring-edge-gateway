@@ -1,5 +1,6 @@
 #include "ros2_stm32_bridge/ipc_client.hpp"
 
+#include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -36,7 +37,7 @@ bool IpcClient::connectToServer()
 
     std::strncpy(
         addr.sun_path,
-        socketPath_.c_str(),
+        this->socketPath_.c_str(),
         sizeof(addr.sun_path) - 1);
 
     if (connect(
@@ -65,4 +66,17 @@ std::string IpcClient::readLine()
     }
 
     return "";
+}
+bool IpcClient::writeLine(const std::string& line){
+    if (socketFd_ < 0) {
+        std::cerr << "Client not connected, cannot write." << std::endl;
+        return false;
+    }
+    // Send data over the stream socket
+    ssize_t bytesSent = send(socketFd_, line.c_str(), line.size(), 0);
+    if (bytesSent < 0) {
+        perror("client write failed");
+        return false;
+    }
+    return bytesSent==static_cast<ssize_t>(line.size());
 }
