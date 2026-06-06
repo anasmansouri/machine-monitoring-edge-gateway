@@ -14,12 +14,14 @@ DEPENDS += " \
     rclcpp \
     std-msgs \
     std-srvs \
+    machine-interfaces \
 "
 
 RDEPENDS:${PN} += " \
     rclcpp \
     std-msgs \
     std-srvs \
+    machine-interfaces \
 "
 
 EXTRA_OECMAKE += " \

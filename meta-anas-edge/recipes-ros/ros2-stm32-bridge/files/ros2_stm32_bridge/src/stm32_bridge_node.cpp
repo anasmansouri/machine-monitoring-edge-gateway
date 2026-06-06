@@ -7,7 +7,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_srvs/srv/trigger.hpp"
-
+#include "machine_interfaces/srv/set_load_threshold.hpp"
 using namespace std::chrono_literals;
 
 class Stm32BridgeNode : public rclcpp::Node
@@ -15,9 +15,9 @@ class Stm32BridgeNode : public rclcpp::Node
 public:
     Stm32BridgeNode()
         : Node("stm32_bridge_node"),
-          ipcClient("/tmp/stm32-gateway.sock"), ipcCommandClient("/tmp/stm32-gateway-command.sock")
+          telemetryClient("/tmp/stm32-gateway.sock"), commandClient("/tmp/stm32-gateway-command.sock")
     {
-        if (!this->ipcClient.connectToServer())
+        if (!this->telemetryClient.connectToServer())
         {
             RCLCPP_ERROR(this->get_logger(), "Failed to connect to IPC server");
         }
@@ -26,7 +26,7 @@ public:
             RCLCPP_INFO(this->get_logger(), "Connected to IPC server");
         }
 
-        if (!this->ipcCommandClient.connectToServer())
+        if (!this->commandClient.connectToServer())
         {
             RCLCPP_ERROR(this->get_logger(), "Failed to connect to IPC Command server");
         }
@@ -59,6 +59,13 @@ public:
                       this,
                       std::placeholders::_1,
                       std::placeholders::_2));
+        set_load_threshold_service_ =
+            this->create_service<machine_interfaces::srv::SetLoadThreshold>(
+                "/machine/set_load_threshold",
+                std::bind(&Stm32BridgeNode::handleSetLoadThreshold,
+                          this,
+                          std::placeholders::_1,
+                          std::placeholders::_2));
 
         timer_ = this->create_wall_timer(
             1s,
@@ -74,7 +81,7 @@ private:
     void publish_message()
     {
         std_msgs::msg::String message;
-        message.data = this->ipcClient.readLine();
+        message.data = this->telemetryClient.readLine();
         if (message.data.empty())
         {
             return;
@@ -88,27 +95,24 @@ private:
             "Published: '%s'",
             message.data.c_str());
     }
+
+    std::string sendCommandToGateway(const std::string &cmd)
+    {
+        if (!this->commandClient.writeLine(cmd))
+        {
+            return "";
+        }
+
+        return this->commandClient.readLine();
+    }
+
     void handleCommandService(const std::string &cmd, std::shared_ptr<std_srvs::srv::Trigger::Response> response)
     {
-
-        if (this->ipcCommandClient.writeLine(cmd))
+        std::string reply = this->sendCommandToGateway(cmd);
+        if (!reply.empty())
         {
-            std::string reply = this->ipcCommandClient.readLine();
-            if (reply.empty())
-            {
-                response->success = false;
-                response->message = "No reposnse from gateway command server";
-                return;
-            }
             response->message = reply;
-            if (reply.rfind("ACK:", 0) == 0)
-            {
-                response->success = true;
-            }
-            else
-            {
-                response->success = false;
-            }
+            response->success = reply.rfind("ACK:", 0) == 0;
 
             RCLCPP_INFO(this->get_logger(),
                         "Command '%s' -> '%s'",
@@ -118,11 +122,10 @@ private:
         else
         {
             response->success = false;
-            response->message = "can't send message correctly";
+            response->message = "No reposnse from gateway command server";
             return;
         }
     }
-
     void handleStartMachine(
         const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response)
@@ -146,15 +149,41 @@ private:
         (void)request;
         handleCommandService("RESET_FAULT", response);
     }
+    void handleSetLoadThreshold(
+        const std::shared_ptr<machine_interfaces::srv::SetLoadThreshold::Request> request,
+        std::shared_ptr<machine_interfaces::srv::SetLoadThreshold::Response> response)
+    {
+        std::string command =
+            "SET_LOAD_THRESHOLD:WARN=" + std::to_string(request->warning) +
+            ";FAULT=" + std::to_string(request->fault);
 
-    IpcClient ipcClient;
-    IpcClient ipcCommandClient;
+        std::string reply = sendCommandToGateway(command);
+
+        if (reply.empty())
+        {
+            response->success = false;
+            response->message = "No response from gateway command server";
+            return;
+        }
+
+        response->message = reply;
+        response->success = reply.rfind("ACK:", 0) == 0;
+
+        RCLCPP_INFO(this->get_logger(),
+                    "Command '%s' -> '%s'",
+                    command.c_str(),
+                    reply.c_str());
+    }
+
+    IpcClient telemetryClient;
+    IpcClient commandClient;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
     rclcpp::TimerBase::SharedPtr timer_;
     // services
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_service_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_service_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_fault_service_;
+    rclcpp::Service<machine_interfaces::srv::SetLoadThreshold>::SharedPtr set_load_threshold_service_;
 };
 
 int main(int argc, char *argv[])

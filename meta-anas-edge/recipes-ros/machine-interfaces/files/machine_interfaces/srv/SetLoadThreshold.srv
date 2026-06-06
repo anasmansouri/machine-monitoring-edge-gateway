@@ -1,0 +1,5 @@
+int32 warning
+int32 fault
+---
+bool success
+string message

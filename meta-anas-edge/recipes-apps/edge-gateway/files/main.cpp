@@ -21,12 +21,13 @@ enum class LED_STATE
 std::mutex uartMutex;
 std::ofstream log("/var/log/edge-gateway.log", std::ios::app);
 cc::manager::UartManager uartManager("/dev/ttyAMA0");
-    cc::manager::ProtocolParser protocolParser;
-    cc::manager::IpcServer ipcServer_telemetry("/tmp/stm32-gateway.sock");
+cc::manager::ProtocolParser protocolParser;
+cc::manager::IpcServer ipcServer_telemetry("/tmp/stm32-gateway.sock");
 
 
 void handleIncomingIpcData(int clientFd, const std::string &message);
-    cc::manager::IpcServer ipcServer_command("/tmp/stm32-gateway-command.sock", handleIncomingIpcData);
+cc::manager::IpcServer ipcServer_command("/tmp/stm32-gateway-command.sock", handleIncomingIpcData);
+
 void handleIncomingIpcData(int clientFd, const std::string &message)
 {
 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(ros2_stm32_bridge)
+project(machine_interfaces)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -7,27 +7,14 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
-find_package(machine_interfaces REQUIRED)
-
-add_executable(stm32_bridge_node src/stm32_bridge_node.cpp src/ipc_client.cpp)
-target_include_directories(stm32_bridge_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
-target_compile_features(stm32_bridge_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-ament_target_dependencies(
-  stm32_bridge_node
-  "rclcpp"
-  "std_msgs"
-  "std_srvs"
-  "machine_interfaces"
+find_package(rosidl_default_generators REQUIRED) # Required for generating interfaces
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/SetLoadThreshold.srv"
 )
-
-install(TARGETS stm32_bridge_node
-  DESTINATION lib/${PROJECT_NAME})
-
+ament_export_dependencies(rosidl_default_runtime)
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
