@@ -8,7 +8,58 @@
 #include "std_msgs/msg/string.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "machine_interfaces/srv/set_load_threshold.hpp"
+#include "machine_interfaces/msg/machine_telemetry.hpp"
 using namespace std::chrono_literals;
+
+bool parseTelemetryJson(const std::string &json,
+                        machine_interfaces::msg::MachineTelemetry &msg)
+{
+    char state[30] = {0};
+    char fault[30] = {0};
+    char operatingMode[30] = {0};
+    char dhtStatus[30] = {0};
+    char loadStatus[30] = {0};
+
+    int temperature = 0;
+    int humidity = 0;
+    int load = 0;
+
+    int matched = std::sscanf(
+        json.c_str(),
+        "{\"type\":\"machine_snapshot\","
+        "\"temperature\":%d,"
+        "\"humidity\":%d,"
+        "\"load\":%d,"
+        "\"state\":\"%29[^\"]\","
+        "\"fault\":\"%29[^\"]\","
+        "\"operating_mode\":\"%29[^\"]\","
+        "\"dht_status\":\"%29[^\"]\","
+        "\"load_status\":\"%29[^\"]\"}",
+        &temperature,
+        &humidity,
+        &load,
+        state,
+        fault,
+        operatingMode,
+        dhtStatus,
+        loadStatus);
+
+    if (matched != 8)
+    {
+        return false;
+    }
+
+    msg.temperature = temperature;
+    msg.humidity = humidity;
+    msg.load = load;
+    msg.state = state;
+    msg.fault = fault;
+    msg.operating_mode = operatingMode;
+    msg.dht_status = dhtStatus;
+    msg.load_status = loadStatus;
+
+    return true;
+}
 
 class Stm32BridgeNode : public rclcpp::Node
 {
@@ -35,7 +86,7 @@ public:
             RCLCPP_INFO(this->get_logger(), "Connected to IPC  Command server");
         }
         // connect to server
-        publisher_ = this->create_publisher<std_msgs::msg::String>(
+        publisher_ = this->create_publisher<machine_interfaces::msg::MachineTelemetry>(
             "/machine/telemetry",
             10);
 
@@ -80,20 +131,32 @@ public:
 private:
     void publish_message()
     {
-        std_msgs::msg::String message;
-        message.data = this->telemetryClient.readLine();
-        if (message.data.empty())
-        {
+        machine_interfaces::msg::MachineTelemetry message;
+        std::string received_msg = this->telemetryClient.readLine();
+
+        if(received_msg.empty()){
             return;
         }
 
-        publisher_->publish(message);
-        // this->ipcCommandClient.writeLine("START_MACHINE");
+        if(!parseTelemetryJson(received_msg, message)){
+             RCLCPP_WARN(this->get_logger(),
+                    "Failed to parse telemetry JSON: %s",
+                    received_msg.c_str());
+             return;
+        }
 
-        RCLCPP_INFO(
-            this->get_logger(),
-            "Published: '%s'",
-            message.data.c_str());
+        publisher_->publish(message);
+
+        RCLCPP_INFO(this->get_logger(),
+            "Published telemetry: temp=%d hum=%d load=%d state=%s fault=%s mode=%s dht=%s load_status=%s",
+            message.temperature,
+            message.humidity,
+            message.load,
+            message.state.c_str(),
+            message.fault.c_str(),
+            message.operating_mode.c_str(),
+            message.dht_status.c_str(),
+            message.load_status.c_str());
     }
 
     std::string sendCommandToGateway(const std::string &cmd)
@@ -177,7 +240,7 @@ private:
 
     IpcClient telemetryClient;
     IpcClient commandClient;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<machine_interfaces::msg::MachineTelemetry>::SharedPtr publisher_;
     rclcpp::TimerBase::SharedPtr timer_;
     // services
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_service_;
