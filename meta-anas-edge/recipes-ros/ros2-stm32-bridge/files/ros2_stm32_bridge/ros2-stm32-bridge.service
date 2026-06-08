@@ -1,0 +1,21 @@
+[Unit]
+Description=ROS2 STM32 Bridge Service
+After=edge-gateway.service network.target
+Requires=edge-gateway.service
+
+[Service]
+Type=simple
+Environment=HOME=/root
+Environment=ROS_HOME=/root/.ros
+Environment=ROS_LOG_DIR=/var/log/ros
+
+ExecStartPre=/bin/mkdir -p /var/log/ros
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do [ -S /tmp/stm32-gateway.sock ] && [ -S /tmp/stm32-gateway-command.sock ] && exit 0; echo "Waiting for STM32 gateway sockets..."; sleep 1; done; echo "STM32 gateway sockets not available"; exit 1'
+
+ExecStart=/bin/sh -c '. /opt/ros/jazzy/setup.sh && exec /opt/ros/jazzy/lib/ros2_stm32_bridge/stm32_bridge_node'
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
