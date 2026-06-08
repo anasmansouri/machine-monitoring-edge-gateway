@@ -134,39 +134,84 @@ private:
         machine_interfaces::msg::MachineTelemetry message;
         std::string received_msg = this->telemetryClient.readLine();
 
-        if(received_msg.empty()){
+        if (received_msg.empty())
+        {
+            RCLCPP_WARN(this->get_logger(),
+                        "Telemetry IPC disconnected, trying to reconnect...");
+
+            if (!this->telemetryClient.reconnectToServer())
+            {
+                RCLCPP_WARN(this->get_logger(),
+                            "Telemetry IPC reconnect failed");
+                return;
+            }
+
+            RCLCPP_INFO(this->get_logger(),
+                        "Telemetry IPC reconnected");
             return;
         }
 
-        if(!parseTelemetryJson(received_msg, message)){
-             RCLCPP_WARN(this->get_logger(),
-                    "Failed to parse telemetry JSON: %s",
-                    received_msg.c_str());
-             return;
+        if (!parseTelemetryJson(received_msg, message))
+        {
+            RCLCPP_WARN(this->get_logger(),
+                        "Failed to parse telemetry JSON: %s",
+                        received_msg.c_str());
+            return;
         }
 
         publisher_->publish(message);
 
         RCLCPP_INFO(this->get_logger(),
-            "Published telemetry: temp=%d hum=%d load=%d state=%s fault=%s mode=%s dht=%s load_status=%s",
-            message.temperature,
-            message.humidity,
-            message.load,
-            message.state.c_str(),
-            message.fault.c_str(),
-            message.operating_mode.c_str(),
-            message.dht_status.c_str(),
-            message.load_status.c_str());
+                    "Published telemetry: temp=%d hum=%d load=%d state=%s fault=%s mode=%s dht=%s load_status=%s",
+                    message.temperature,
+                    message.humidity,
+                    message.load,
+                    message.state.c_str(),
+                    message.fault.c_str(),
+                    message.operating_mode.c_str(),
+                    message.dht_status.c_str(),
+                    message.load_status.c_str());
     }
 
     std::string sendCommandToGateway(const std::string &cmd)
     {
         if (!this->commandClient.writeLine(cmd))
         {
-            return "";
+            RCLCPP_WARN(this->get_logger(),
+                        "Command IPC write failed, trying to reconnect...");
+
+            if (!this->commandClient.reconnectToServer())
+            {
+                RCLCPP_WARN(this->get_logger(),
+                            "Command IPC reconnect failed");
+                return "";
+            }
+
+            if (!this->commandClient.writeLine(cmd))
+            {
+                RCLCPP_WARN(this->get_logger(),
+                            "Command IPC write failed after reconnect");
+                return "";
+            }
         }
 
-        return this->commandClient.readLine();
+        std::string reply = this->commandClient.readLine();
+
+        if (!reply.empty())
+        {
+            return reply;
+        }
+
+        RCLCPP_WARN(this->get_logger(),
+                    "Command IPC read failed, trying to reconnect...");
+
+        if (!this->commandClient.reconnectToServer())
+        {
+            RCLCPP_WARN(this->get_logger(),
+                        "Command IPC reconnect failed");
+        }
+
+        return "";
     }
 
     void handleCommandService(const std::string &cmd, std::shared_ptr<std_srvs::srv::Trigger::Response> response)

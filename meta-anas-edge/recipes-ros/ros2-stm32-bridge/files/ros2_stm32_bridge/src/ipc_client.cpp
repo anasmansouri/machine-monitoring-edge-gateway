@@ -16,13 +16,12 @@ IpcClient::IpcClient(const std::string& socketPath)
 
 IpcClient::~IpcClient()
 {
-    if (socketFd_ >= 0) {
-        close(socketFd_);
-    }
+    this->disconnectFromServer();
 }
 
 bool IpcClient::connectToServer()
 {
+    this->disconnectFromServer();
     socketFd_ = socket(AF_UNIX, SOCK_STREAM, 0);
 
     if (socketFd_ < 0) {
@@ -64,7 +63,7 @@ std::string IpcClient::readLine()
     if (bytesRead > 0) {
         return std::string(buffer);
     }
-
+    this->disconnectFromServer();
     return "";
 }
 bool IpcClient::writeLine(const std::string& line){
@@ -76,7 +75,23 @@ bool IpcClient::writeLine(const std::string& line){
     ssize_t bytesSent = send(socketFd_, line.c_str(), line.size(), 0);
     if (bytesSent < 0) {
         perror("client write failed");
+        this->disconnectFromServer();
         return false;
     }
     return bytesSent==static_cast<ssize_t>(line.size());
+}
+
+void IpcClient::disconnectFromServer()
+{
+    if (socketFd_ >= 0)
+    {
+        close(socketFd_);
+        socketFd_ = -1;
+    }
+}
+
+bool IpcClient::reconnectToServer()
+{
+    disconnectFromServer();
+    return connectToServer();
 }

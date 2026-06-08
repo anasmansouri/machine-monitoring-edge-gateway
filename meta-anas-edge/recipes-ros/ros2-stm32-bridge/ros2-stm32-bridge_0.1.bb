@@ -9,6 +9,7 @@ S = "${WORKDIR}/ros2_stm32_bridge"
 
 inherit ros_distro_jazzy
 inherit ros_ament_cmake
+inherit systemd
 
 
 DEPENDS += " \
@@ -40,4 +41,5 @@ do_install:append() {
 
 FILES:${PN} += "${systemd_system_unitdir}/ros2-stm32-bridge.service"
 
-SYSTEMD_AUTO_ENABLE = "enable"
+SYSTEMD_AUTO_ENABLE:${PN} = "enable"
+#SYSTEMD_AUTO_ENABLE = "enable"
