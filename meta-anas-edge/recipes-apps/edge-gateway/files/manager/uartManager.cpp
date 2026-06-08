@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 namespace cc::manager
 {
 
@@ -103,14 +104,27 @@ namespace cc::manager
         char buffer={0};
         std::string msg;
         while (true) {
-            int num_bytes = read(this->fd,&buffer, 1); 
-            if(num_bytes<=0){
-                return cc::utils::Result<std::string>::fail(cc::utils::ErrorCode::UartReadFailed,"can't read anything ");
-            }else if (buffer=='\n') {
-                break;
-            }else if (buffer=='\r') {
-                continue;
+            struct pollfd pfd;
+            pfd.fd = this->fd;
+            pfd.events = POLLIN;
+            pfd.revents = 0;
+            int poll_result = poll(&pfd, 1, 1000); // timeout: 1000 ms
+            if(poll_result==0){
+                return cc::utils::Result<std::string>::fail(cc::utils::ErrorCode::UartReadFailed,"UART read Timeout");
+            }else if(poll_result<0){
+                return cc::utils::Result<std::string>::fail(cc::utils::ErrorCode::UartReadFailed,"UART poll Failed");
+            }else if(!(pfd.revents & POLLIN)){
+                return cc::utils::Result<std::string>::fail(cc::utils::ErrorCode::UartReadFailed,"UART not ready for reading");
             }
+
+            int num_bytes = read(this->fd,&buffer, 1); 
+                if(num_bytes<=0){
+                     return cc::utils::Result<std::string>::fail(cc::utils::ErrorCode::UartReadFailed,"can't read anything ");
+                }else if (buffer=='\n') {
+                    break;
+                }else if (buffer=='\r') {
+                    continue;
+                }
             msg.push_back(buffer);
         }
         return cc::utils::Result<std::string>::ok(msg);

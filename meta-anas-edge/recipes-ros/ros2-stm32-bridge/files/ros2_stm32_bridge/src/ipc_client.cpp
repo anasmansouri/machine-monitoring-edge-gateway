@@ -1,10 +1,11 @@
 #include "ros2_stm32_bridge/ipc_client.hpp"
 
 #include <string>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-
+#include <poll.h>
 #include <cstring>
 #include <iostream>
 
@@ -51,18 +52,48 @@ bool IpcClient::connectToServer()
 
     return true;
 }
-
 std::string IpcClient::readLine()
 {
+    if (socketFd_ < 0)
+    {
+        return "";
+    }
+
+    struct pollfd pfd;
+    pfd.fd = socketFd_;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+
+    int poll_result = poll(&pfd, 1, 1000); // 1000 ms timeout
+
+    if (poll_result == 0)
+    {
+        return "";
+    }
+
+    if (poll_result < 0)
+    {
+        perror("poll");
+        this->disconnectFromServer();
+        return "";
+    }
+
+    if (!(pfd.revents & POLLIN))
+    {
+        this->disconnectFromServer();
+        return "";
+    }
+
     char buffer[1024];
     std::memset(buffer, 0, sizeof(buffer));
 
-    ssize_t bytesRead =
-        read(socketFd_, buffer, sizeof(buffer) - 1);
+    ssize_t bytesRead = read(socketFd_, buffer, sizeof(buffer) - 1);
 
-    if (bytesRead > 0) {
+    if (bytesRead > 0)
+    {
         return std::string(buffer);
     }
+
     this->disconnectFromServer();
     return "";
 }
