@@ -9,6 +9,16 @@ Environment=HOME=/root
 Environment=ROS_HOME=/root/.ros
 Environment=ROS_LOG_DIR=/var/log/ros
 
+# Use the same ROS domain ID on the Raspberry Pi and the host PC
+# so their ROS2 nodes can discover and communicate with each other.
+
+Environment=ROS_DOMAIN_ID=7
+
+# Allow ROS2 communication over the network.
+# If set to 1, ROS2 communication is limited to the local machine only.
+
+Environment=ROS_LOCALHOST_ONLY=0
+
 ExecStartPre=/bin/mkdir -p /var/log/ros
 ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do [ -S /tmp/stm32-gateway.sock ] && [ -S /tmp/stm32-gateway-command.sock ] && exit 0; echo "Waiting for STM32 gateway sockets..."; sleep 1; done; echo "STM32 gateway sockets not available"; exit 1'
 
