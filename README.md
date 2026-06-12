@@ -257,6 +257,24 @@ ros2 service call /machine/reset_fault std_srvs/srv/Trigger "{}"
 ros2 service call /machine/set_load_threshold machine_interfaces/srv/SetLoadThreshold "{warning: 60, fault: 85}"
 ```
 
+## ROS2 Host Communication Test
+
+The Raspberry Pi uses a static Ethernet address:
+
+- Host PC: `192.168.50.1`
+- Raspberry Pi: `192.168.50.2`
+
+A ROS2 Jazzy Docker container can communicate with the Raspberry Pi using host networking:
+
+```bash
+docker run -it --rm \
+  --net=host \
+  -e ROS_DOMAIN_ID=7 \
+  -e ROS_LOCALHOST_ONLY=0 \
+  -v ~/personal_projects/yocto_project/machine-monitoring-edge-gateway:/gateway \
+  ros:jazzy-ros-base \
+  bash
+
 ## Hardware
 
 * Raspberry Pi 5
