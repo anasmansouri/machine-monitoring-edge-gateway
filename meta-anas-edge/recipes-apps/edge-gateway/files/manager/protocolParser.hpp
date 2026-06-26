@@ -14,6 +14,11 @@ struct Telemetry{
     int temperature;
     int humidity;
     int load;
+    uint32_t fan_rpm = 0;
+    int32_t vibrationX_mg = 0;
+    int32_t vibrationY_mg = 0;
+    int32_t vibrationZ_mg = 0;
+    bool emergency_button = false;
     char machine_state[30];
     char fault[30];
     char operating_mode[30];

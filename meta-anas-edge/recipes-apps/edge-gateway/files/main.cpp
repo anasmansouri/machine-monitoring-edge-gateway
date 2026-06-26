@@ -144,12 +144,17 @@ int main()
                     if (data)
                     {
                         std::string json =
-                            "{\"type\":\"machine_snapshot\",\"temperature\":" +
+                            "{\"type\":\"machine_snapshot\","
+                            "\"temperature\":" +
                             std::to_string(data.unwrap().temperature) +
-                            ",\"humidity\":" +
-                            std::to_string(data.unwrap().humidity) +
-                            ",\"load\":" +
-                            std::to_string(data.unwrap().load) +
+                            ",\"humidity\":" + std::to_string(data.unwrap().humidity) +
+                            ",\"load\":" + std::to_string(data.unwrap().load) +
+                            ",\"fan_rpm\":" + std::to_string(data.unwrap().fan_rpm) +
+                            ",\"vibration_x_mg\":" + std::to_string(data.unwrap().vibrationX_mg) +
+                            ",\"vibration_y_mg\":" + std::to_string(data.unwrap().vibrationY_mg) +
+                            ",\"vibration_z_mg\":" + std::to_string(data.unwrap().vibrationZ_mg) +
+                            ",\"emergency_button\":" +
+                            std::string(data.unwrap().emergency_button ? "true" : "false") +
                             ",\"state\":\"" +
                             std::string(data.unwrap().machine_state) +
                             "\",\"fault\":\"" +
