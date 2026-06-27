@@ -17,13 +17,18 @@ This project demonstrates a small industrial-style embedded system using:
 * ROS2 services for machine control
 * systemd services for automatic startup
 * Robust startup when STM32 is offline
+* End-to-end telemetry from STM32 sensors to ROS2 topics
 
 ## System Architecture
 
 ```text
 +----------------------+
 | STM32 Machine I/O    |
-| - Sensors            |
+| - DHT sensor         |
+| - Load sensor        |
+| - Fan RPM            |
+| - Vibration sensor   |
+| - Emergency input    |
 | - Machine state      |
 | - UART protocol      |
 +----------+-----------+
@@ -69,6 +74,7 @@ Responsibilities:
 * Perform handshake with STM32 using `PING`
 * Poll STM32 using `GET_STATUS`
 * Parse machine telemetry
+* Convert STM32 status frames into JSON snapshots
 * Broadcast telemetry over Unix socket
 * Forward machine control commands to STM32
 * Stay alive if STM32 is powered off or disconnected
@@ -79,7 +85,8 @@ ROS2 C++ node.
 
 Responsibilities:
 
-* Read telemetry from the gateway over Unix socket
+* Read telemetry JSON from the gateway over Unix socket
+* Parse machine snapshots
 * Publish machine telemetry on ROS2 topic
 * Provide ROS2 services for machine control
 * Reconnect if the gateway socket is temporarily unavailable
@@ -93,6 +100,25 @@ It contains:
 * Custom telemetry message
 * Custom service for setting load thresholds
 
+## Telemetry Pipeline
+
+The current end-to-end data flow is:
+
+```text
+STM32 sensors
+  -> UART STATUS response
+  -> Raspberry Pi edge-gateway
+  -> Unix socket JSON message
+  -> ros2-stm32-bridge
+  -> /machine/telemetry
+```
+
+The gateway publishes JSON snapshots over IPC, for example:
+
+```json
+{"type":"machine_snapshot","temperature":27,"humidity":62,"load":28,"fan_rpm":2100,"vibration_x_mg":374,"vibration_y_mg":-724,"vibration_z_mg":-430,"emergency_button":false,"state":"MACHINE_STATE_IDLE","fault":"FAULT_NONE","operating_mode":"AUTO_MODE","dht_status":"DHT_OK","load_status":"LOAD_OK"}
+```
+
 ## ROS2 Interfaces
 
 ### Topic
@@ -103,17 +129,40 @@ It contains:
 
 Publishes machine telemetry received from STM32.
 
-Example fields:
+Current fields:
 
 ```text
 temperature
 humidity
 load
+fan_rpm
+vibration_x_mg
+vibration_y_mg
+vibration_z_mg
+emergency_button
 state
 fault
 operating_mode
 dht_status
 load_status
+```
+
+Example ROS2 output:
+
+```yaml
+temperature: 27
+humidity: 62
+load: 28
+fan_rpm: 2100
+vibration_x_mg: 374
+vibration_y_mg: -724
+vibration_z_mg: -430
+emergency_button: false
+state: MACHINE_STATE_IDLE
+fault: FAULT_NONE
+operating_mode: AUTO_MODE
+dht_status: DHT_OK
+load_status: LOAD_OK
 ```
 
 ### Services
@@ -147,7 +196,7 @@ ACK:STOP_MACHINE
 ACK:RESET_FAULT
 ACK:SET_LOAD_THRESHOLD
 NACK:UNKNOWN_CMD
-STATUS:TEMP=24;HUM=50;LOAD=35;STATE=MACHINE_STATE_RUNNING;FAULT=FAULT_NONE;OPERATING_MODE=AUTO_MODE;DHT_STATUS=DHT_OK;LOAD_STATUS=LOAD_OK
+STATUS:TEMP=27;HUM=62;LOAD=28;VIB_X=374;VIB_Y=-724;VIB_Z=-430;fanRPM=2100;emergency_button=0;STATE=MACHINE_STATE_IDLE;FAULT=FAULT_NONE;OPERATING_MODE=AUTO_MODE;DHT_STATUS=DHT_OK;LOAD_STATUS=LOAD_OK
 ```
 
 ## Robust Startup Behavior
@@ -187,6 +236,12 @@ journalctl -u edge-gateway -f
 journalctl -u ros2-stm32-bridge -f
 ```
 
+The edge gateway also writes an application log:
+
+```bash
+tail -f /var/log/edge-gateway.log
+```
+
 ## Yocto Build
 
 Enter the build directory:
@@ -201,10 +256,24 @@ Build the full image:
 bitbake core-image-base
 ```
 
+Build only the gateway or ROS2 packages during development:
+
+```bash
+bitbake edge-gateway
+bitbake machine-interfaces
+bitbake ros2-stm32-bridge
+```
+
 Image output:
 
 ```text
 tmp/deploy/images/raspberrypi5/
+```
+
+The latest image symlink is usually:
+
+```text
+tmp/deploy/images/raspberrypi5/core-image-base-raspberrypi5.rootfs.wic.bz2
 ```
 
 ## Flash Image
@@ -218,11 +287,11 @@ lsblk
 Flash the image:
 
 ```bash
-sudo bmaptool copy tmp/deploy/images/raspberrypi5/*.wic.bz2 /dev/sdX
+sudo bmaptool copy tmp/deploy/images/raspberrypi5/core-image-base-raspberrypi5.rootfs.wic.bz2 /dev/sdX
 sync
 ```
 
-Replace `/dev/sdX` with the correct SD card device.
+Replace `/dev/sdX` with the correct SD card device, not a partition such as `/dev/sdX1`.
 
 ## Runtime Test
 
@@ -233,15 +302,36 @@ systemctl status edge-gateway
 systemctl status ros2-stm32-bridge
 ```
 
-Source ROS2:
+Check that the gateway receives STM32 data:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+tail -n 50 /var/log/edge-gateway.log
+```
+
+Expected log pattern:
+
+```text
+PI sent PING
+STM32 REPLIES : ACK:PING
+PI Sent : GET_STATUS
+STM32 REPLIES : STATUS:TEMP=...
+```
+
+Source ROS2 on the Yocto target. The image may use BusyBox `sh`, so use `setup.sh` instead of `setup.bash`:
+
+```sh
+unset AMENT_SHELL
+unset AMENT_CURRENT_PREFIX
+. /opt/ros/jazzy/setup.sh
+export ROS_DOMAIN_ID=7
+export ROS_LOCALHOST_ONLY=0
 ```
 
 Check telemetry:
 
 ```bash
+ros2 topic list
+ros2 interface show machine_interfaces/msg/MachineTelemetry
 ros2 topic echo /machine/telemetry
 ```
 
@@ -261,8 +351,8 @@ ros2 service call /machine/set_load_threshold machine_interfaces/srv/SetLoadThre
 
 The Raspberry Pi uses a static Ethernet address:
 
-- Host PC: `192.168.50.1`
-- Raspberry Pi: `192.168.50.2`
+* Host PC: `192.168.50.1`
+* Raspberry Pi: `192.168.50.2`
 
 A ROS2 Jazzy Docker container can communicate with the Raspberry Pi using host networking:
 
@@ -274,6 +364,15 @@ docker run -it --rm \
   -v ~/personal_projects/yocto_project/machine-monitoring-edge-gateway:/gateway \
   ros:jazzy-ros-base \
   bash
+```
+
+Inside the container:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+ros2 topic list
+ros2 topic echo /machine/telemetry
+```
 
 ## Hardware
 
@@ -282,6 +381,9 @@ docker run -it --rm \
 * UART connection between Raspberry Pi and STM32
 * DHT11 / KY-015 temperature and humidity sensor
 * Load sensor / potentiometer
+* ADXL345 vibration sensor
+* 4-pin PWM fan with RPM feedback
+* Emergency stop input
 * Status LEDs
 
 ## UART Settings
@@ -294,6 +396,27 @@ Stop bits: 1
 Flow control: None
 ```
 
+## Current Status
+
+Implemented and tested:
+
+* STM32 to Raspberry Pi UART handshake with `PING`
+* Periodic `GET_STATUS` polling
+* Temperature, humidity, and load telemetry
+* ADXL345 vibration telemetry on X/Y/Z axes
+* Fan RPM and emergency button fields in the protocol and ROS2 message
+* Edge gateway protocol parsing
+* IPC JSON broadcast
+* ROS2 `/machine/telemetry` publishing
+* ROS2 service forwarding for machine commands
+
+Planned next steps:
+
+* Add a single vibration level or vibration alert field
+* Add dashboard or HMI visualization
+* Add long-term metrics storage with InfluxDB/Grafana
+* Add OTA/FOTA update flow
+
 ## Skills Demonstrated
 
 * Embedded Linux
@@ -302,9 +425,11 @@ Flow control: None
 * systemd service integration
 * C++ on Linux
 * UART communication
+* Protocol parsing
 * Unix socket IPC
+* JSON telemetry bridge
 * ROS2 C++ nodes
 * Custom ROS2 messages and services
 * STM32 integration
+* Sensor telemetry integration
 * Robust reconnect and timeout handling
-
