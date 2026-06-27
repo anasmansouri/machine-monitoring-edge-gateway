@@ -4,7 +4,8 @@
 #include <fstream>
 #include "manager/uartManager.hpp"
 #include "manager/protocolParser.hpp"
-#include "manager/ipcServer.hpp" #include "utils/Result.hpp"
+#include "manager/ipcServer.hpp" 
+#include "utils/Result.hpp"
 #include <unistd.h>
 #include <cstring>
 #include <thread>

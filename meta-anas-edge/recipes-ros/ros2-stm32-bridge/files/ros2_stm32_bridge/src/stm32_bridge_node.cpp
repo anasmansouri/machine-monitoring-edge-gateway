@@ -19,10 +19,16 @@ bool parseTelemetryJson(const std::string &json,
     char operatingMode[30] = {0};
     char dhtStatus[30] = {0};
     char loadStatus[30] = {0};
+    char emergencyButton[6] = {0}; // "true" or "false"
 
     int temperature = 0;
     int humidity = 0;
     int load = 0;
+
+    unsigned int fanRpm = 0;
+    int vibrationX = 0;
+    int vibrationY = 0;
+    int vibrationZ = 0;
 
     int matched = std::sscanf(
         json.c_str(),
@@ -30,6 +36,11 @@ bool parseTelemetryJson(const std::string &json,
         "\"temperature\":%d,"
         "\"humidity\":%d,"
         "\"load\":%d,"
+        "\"fan_rpm\":%u,"
+        "\"vibration_x_mg\":%d,"
+        "\"vibration_y_mg\":%d,"
+        "\"vibration_z_mg\":%d,"
+        "\"emergency_button\":%5[^,],"
         "\"state\":\"%29[^\"]\","
         "\"fault\":\"%29[^\"]\","
         "\"operating_mode\":\"%29[^\"]\","
@@ -38,13 +49,18 @@ bool parseTelemetryJson(const std::string &json,
         &temperature,
         &humidity,
         &load,
+        &fanRpm,
+        &vibrationX,
+        &vibrationY,
+        &vibrationZ,
+        emergencyButton,
         state,
         fault,
         operatingMode,
         dhtStatus,
         loadStatus);
 
-    if (matched != 8)
+    if (matched != 13)
     {
         return false;
     }
@@ -52,6 +68,13 @@ bool parseTelemetryJson(const std::string &json,
     msg.temperature = temperature;
     msg.humidity = humidity;
     msg.load = load;
+
+    msg.fan_rpm = fanRpm;
+    msg.vibration_x_mg = vibrationX;
+    msg.vibration_y_mg = vibrationY;
+    msg.vibration_z_mg = vibrationZ;
+    msg.emergency_button = (std::string(emergencyButton) == "true");
+
     msg.state = state;
     msg.fault = fault;
     msg.operating_mode = operatingMode;
@@ -59,9 +82,7 @@ bool parseTelemetryJson(const std::string &json,
     msg.load_status = loadStatus;
 
     return true;
-}
-
-class Stm32BridgeNode : public rclcpp::Node
+}class Stm32BridgeNode : public rclcpp::Node
 {
 public:
     Stm32BridgeNode()
