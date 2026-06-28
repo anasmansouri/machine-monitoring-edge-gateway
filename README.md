@@ -374,6 +374,32 @@ ros2 topic list
 ros2 topic echo /machine/telemetry
 ```
 
+The machine state is controlled by STM32 firmware. `IDLE` is the safe waiting state, `RUNNING` is normal operation, `WARNING` means the machine can still run but a threshold is close, and `FAULT` is a latched unsafe state. Emergency stop and hard faults have the highest priority and force the machine into `FAULT`.
+
+stateDiagram-v2
+    [*] --> IDLE: Boot / init OK
+
+    IDLE --> RUNNING: START_MACHINE\nall conditions safe
+    IDLE --> FAULT: START_MACHINE\nemergency or sensor fault active
+
+    RUNNING --> IDLE: STOP_MACHINE
+    RUNNING --> WARNING: load/temp above\nwarning threshold
+    RUNNING --> FAULT: emergency stop\nsensor error\nload/temp fault
+
+    WARNING --> RUNNING: values return\nbelow warning threshold
+    WARNING --> IDLE: STOP_MACHINE
+    WARNING --> FAULT: emergency stop\nsensor error\nfault threshold reached
+
+    FAULT --> IDLE: RESET_FAULT\nall conditions safe
+    FAULT --> FAULT: RESET_FAULT\ncondition still active
+
+    note right of FAULT
+      FAULT is latched.
+      It does not clear automatically.
+      RESET_FAULT is required after
+      the system becomes safe again.
+    end note
+
 ## Hardware
 
 * Raspberry Pi 5

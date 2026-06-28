@@ -5,6 +5,7 @@ uint32 fan_rpm
 int32 vibration_x_mg
 int32 vibration_y_mg
 int32 vibration_z_mg
+int32 vibration_level_mg
 bool emergency_button
 string state
 string fault

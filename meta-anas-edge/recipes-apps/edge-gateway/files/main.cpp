@@ -1,3 +1,4 @@
+#include <iterator>
 #include <ostream>
 #include <stdio.h>
 #include <iostream>
@@ -154,6 +155,7 @@ int main()
                             ",\"vibration_x_mg\":" + std::to_string(data.unwrap().vibrationX_mg) +
                             ",\"vibration_y_mg\":" + std::to_string(data.unwrap().vibrationY_mg) +
                             ",\"vibration_z_mg\":" + std::to_string(data.unwrap().vibrationZ_mg) +
+                            ",\"vibration_level_mg\":" + std::to_string(data.unwrap().vibration_level_mg) +
                             ",\"emergency_button\":" +
                             std::string(data.unwrap().emergency_button ? "true" : "false") +
                             ",\"state\":\"" +
@@ -167,7 +169,6 @@ int main()
                             "\",\"load_status\":\"" +
                             std::string(data.unwrap().load_status) +
                             "\"}\n";
-
                         ipcServer_telemetry.broadcastLine(json);
                     }
                     else

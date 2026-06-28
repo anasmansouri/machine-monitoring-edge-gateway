@@ -29,6 +29,7 @@ bool parseTelemetryJson(const std::string &json,
     int vibrationX = 0;
     int vibrationY = 0;
     int vibrationZ = 0;
+    int vibrationLEVEL = 0;
 
     int matched = std::sscanf(
         json.c_str(),
@@ -40,6 +41,7 @@ bool parseTelemetryJson(const std::string &json,
         "\"vibration_x_mg\":%d,"
         "\"vibration_y_mg\":%d,"
         "\"vibration_z_mg\":%d,"
+        "\"vibration_level_mg\":%d,"
         "\"emergency_button\":%5[^,],"
         "\"state\":\"%29[^\"]\","
         "\"fault\":\"%29[^\"]\","
@@ -53,6 +55,7 @@ bool parseTelemetryJson(const std::string &json,
         &vibrationX,
         &vibrationY,
         &vibrationZ,
+        &vibrationLEVEL,
         emergencyButton,
         state,
         fault,
@@ -60,7 +63,7 @@ bool parseTelemetryJson(const std::string &json,
         dhtStatus,
         loadStatus);
 
-    if (matched != 13)
+    if (matched != 14)
     {
         return false;
     }
@@ -73,6 +76,7 @@ bool parseTelemetryJson(const std::string &json,
     msg.vibration_x_mg = vibrationX;
     msg.vibration_y_mg = vibrationY;
     msg.vibration_z_mg = vibrationZ;
+    msg.vibration_level_mg = vibrationLEVEL;
     msg.emergency_button = (std::string(emergencyButton) == "true");
 
     msg.state = state;

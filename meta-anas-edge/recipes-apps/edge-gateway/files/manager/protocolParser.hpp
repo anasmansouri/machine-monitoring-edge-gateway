@@ -18,6 +18,7 @@ struct Telemetry{
     int32_t vibrationX_mg = 0;
     int32_t vibrationY_mg = 0;
     int32_t vibrationZ_mg = 0;
+    int32_t vibration_level_mg = 0;
     bool emergency_button = false;
     char machine_state[30];
     char fault[30];
