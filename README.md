@@ -373,9 +373,11 @@ source /opt/ros/jazzy/setup.bash
 ros2 topic list
 ros2 topic echo /machine/telemetry
 ```
+## Machine State
 
 The machine state is controlled by STM32 firmware. `IDLE` is the safe waiting state, `RUNNING` is normal operation, `WARNING` means the machine can still run but a threshold is close, and `FAULT` is a latched unsafe state. Emergency stop and hard faults have the highest priority and force the machine into `FAULT`.
 
+```mermaid
 stateDiagram-v2
     [*] --> IDLE: Boot / init OK
 
@@ -399,7 +401,7 @@ stateDiagram-v2
       RESET_FAULT is required after
       the system becomes safe again.
     end note
-
+```
 ## Hardware
 
 * Raspberry Pi 5
