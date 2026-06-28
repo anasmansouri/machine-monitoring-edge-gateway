@@ -116,7 +116,7 @@ STM32 sensors
 The gateway publishes JSON snapshots over IPC, for example:
 
 ```json
-{"type":"machine_snapshot","temperature":27,"humidity":62,"load":28,"fan_rpm":2100,"vibration_x_mg":374,"vibration_y_mg":-724,"vibration_z_mg":-430,"emergency_button":false,"state":"MACHINE_STATE_IDLE","fault":"FAULT_NONE","operating_mode":"AUTO_MODE","dht_status":"DHT_OK","load_status":"LOAD_OK"}
+{"type":"machine_snapshot","temperature":27,"humidity":62,"load":28,"fan_rpm":1200,"vibration_x_mg":374,"vibration_y_mg":-724,"vibration_z_mg":-430,"vibration_level_mg":1528,"emergency_button":false,"state":"MACHINE_STATE_IDLE","fault":"FAULT_NONE","operating_mode":"AUTO_MODE","dht_status":"DHT_OK","load_status":"LOAD_OK"}
 ```
 
 ## ROS2 Interfaces
@@ -139,6 +139,7 @@ fan_rpm
 vibration_x_mg
 vibration_y_mg
 vibration_z_mg
+vibration_level_mg
 emergency_button
 state
 fault
@@ -157,6 +158,7 @@ fan_rpm: 2100
 vibration_x_mg: 374
 vibration_y_mg: -724
 vibration_z_mg: -430
+vibration_level_mg: 1528
 emergency_button: false
 state: MACHINE_STATE_IDLE
 fault: FAULT_NONE
@@ -196,7 +198,7 @@ ACK:STOP_MACHINE
 ACK:RESET_FAULT
 ACK:SET_LOAD_THRESHOLD
 NACK:UNKNOWN_CMD
-STATUS:TEMP=27;HUM=62;LOAD=28;VIB_X=374;VIB_Y=-724;VIB_Z=-430;fanRPM=2100;emergency_button=0;STATE=MACHINE_STATE_IDLE;FAULT=FAULT_NONE;OPERATING_MODE=AUTO_MODE;DHT_STATUS=DHT_OK;LOAD_STATUS=LOAD_OK
+STATUS:TEMP=27;HUM=62;LOAD=28;VIB_X=374;VIB_Y=-724;VIB_Z=-430;VIB_LEVEL=1528;fanRPM=1200;emergency_button=0;STATE=MACHINE_STATE_IDLE;FAULT=FAULT_NONE;OPERATING_MODE=AUTO_MODE;DHT_STATUS=DHT_OK;LOAD_STATUS=LOAD_OK
 ```
 
 ## Robust Startup Behavior
