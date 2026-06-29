@@ -7,8 +7,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_srvs/srv/trigger.hpp"
-#include "machine_interfaces/srv/set_load_threshold.hpp"
-#include "machine_interfaces/srv/set_vibration_threshold.hpp"
+#include "machine_interfaces/srv/set_threshold.hpp"
+// #include "machine_interfaces/srv/set_vibration_threshold.hpp"
 #include "machine_interfaces/msg/machine_telemetry.hpp"
 using namespace std::chrono_literals;
 
@@ -137,7 +137,7 @@ public:
                       std::placeholders::_1,
                       std::placeholders::_2));
         set_load_threshold_service_ =
-            this->create_service<machine_interfaces::srv::SetLoadThreshold>(
+            this->create_service<machine_interfaces::srv::SetThreshold>(
                 "/machine/set_load_threshold",
                 std::bind(&Stm32BridgeNode::handleSetLoadThreshold,
                           this,
@@ -145,7 +145,7 @@ public:
                           std::placeholders::_2));
 
         set_vibration_threshold_service_ =
-            this->create_service<machine_interfaces::srv::SetVibrationThreshold>(
+            this->create_service<machine_interfaces::srv::SetThreshold>(
                 "/machine/set_vibration_threshold",
                 std::bind(&Stm32BridgeNode::handleSetVibrationThreshold,
                           this,
@@ -292,8 +292,8 @@ private:
         handleCommandService("RESET_FAULT", response);
     }
     void handleSetLoadThreshold(
-        const std::shared_ptr<machine_interfaces::srv::SetLoadThreshold::Request> request,
-        std::shared_ptr<machine_interfaces::srv::SetLoadThreshold::Response> response)
+        const std::shared_ptr<machine_interfaces::srv::SetThreshold::Request> request,
+        std::shared_ptr<machine_interfaces::srv::SetThreshold::Response> response)
     {
         std::string command =
             "SET_LOAD_THRESHOLD:WARN=" + std::to_string(request->warning) +
@@ -318,36 +318,8 @@ private:
     }
 
     void handleSetVibrationThreshold(
-        const std::shared_ptr<machine_interfaces::srv::SetVibrationThreshold::Request> request,
-        std::shared_ptr<machine_interfaces::srv::SetVibrationThreshold::Response> response)
-    {
-     //    SET_VIBRATION_THRESHOLD
-        std::string command =
-            "SET_VIBRATION_THRESHOLD:WARN=" + std::to_string(request->warning) +
-            ";FAULT=" + std::to_string(request->fault);
-
-        std::string reply = sendCommandToGateway(command);
-
-        if (reply.empty())
-        {
-            response->success = false;
-            response->message = "No response from gateway command server";
-            return;
-        }
-
-        response->message = reply;
-        response->success = reply.rfind("ACK:", 0) == 0;
-
-        RCLCPP_INFO(this->get_logger(),
-                    "Command '%s' -> '%s'",
-                    command.c_str(),
-                    reply.c_str());
-    }
-
-    /*
-void handleSetVibrationThreshold(
-     const std::shared_ptr<machine_interfaces::srv::SetVibrationThreshold::Request> request,
-        std::shared_ptr<machine_interfaces::srv::SetVibrationThreshold::Response> response)
+        const std::shared_ptr<machine_interfaces::srv::SetThreshold::Request> request,
+        std::shared_ptr<machine_interfaces::srv::SetThreshold::Response> response)
     {
         std::string command =
             "SET_VIBRATION_THRESHOLD:WARN=" + std::to_string(request->warning) +
@@ -369,10 +341,7 @@ void handleSetVibrationThreshold(
                     "Command '%s' -> '%s'",
                     command.c_str(),
                     reply.c_str());
-
-
     }
-    */
 
     IpcClient telemetryClient;
     IpcClient commandClient;
@@ -382,8 +351,8 @@ void handleSetVibrationThreshold(
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_service_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_service_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_fault_service_;
-    rclcpp::Service<machine_interfaces::srv::SetLoadThreshold>::SharedPtr set_load_threshold_service_;
-    rclcpp::Service<machine_interfaces::srv::SetVibrationThreshold>::SharedPtr set_vibration_threshold_service_;
+    rclcpp::Service<machine_interfaces::srv::SetThreshold>::SharedPtr set_load_threshold_service_;
+    rclcpp::Service<machine_interfaces::srv::SetThreshold>::SharedPtr set_vibration_threshold_service_;
     // rclcpp::Service<machine_interfaces::srv::SetLoadThreshold>::SharedPtr set_vibration_threshold_service_;
 };
 

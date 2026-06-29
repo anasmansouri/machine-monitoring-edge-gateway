@@ -12,8 +12,7 @@ find_package(rosidl_default_generators REQUIRED) # Required for generating inter
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/SetLoadThreshold.srv"
-  "srv/SetVibrationThreshold.srv"
+  "srv/SetThreshold.srv"
   "msg/MachineTelemetry.msg"
 )
 ament_export_dependencies(rosidl_default_runtime)

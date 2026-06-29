@@ -346,9 +346,9 @@ ros2 service call /machine/stop_machine std_srvs/srv/Trigger "{}"
 
 ros2 service call /machine/reset_fault std_srvs/srv/Trigger "{}"
 
-ros2 service call /machine/set_load_threshold machine_interfaces/srv/SetLoadThreshold "{warning: 60, fault: 85}"
+ros2 service call /machine/set_load_threshold machine_interfaces/srv/SetThreshold "{warning: 60, fault: 85}"
 
-ros2 service call /machine/set_vibration_threshold machine_interfaces/srv/SetVibrationThreshold "{warning: 2500, fault: 3000}"
+ros2 service call /machine/set_vibration_threshold machine_interfaces/srv/SetThreshold "{warning: 2500, fault: 3000}"
 ```
 
 ## ROS2 Host Communication Test
