@@ -2,7 +2,7 @@
 
 Embedded Linux edge gateway running on a Raspberry Pi 5 with a custom Yocto image.
 
-The gateway communicates with an STM32 board over UART, receives machine telemetry, exposes the data through ROS2, and provides ROS2 services to control the machine.
+The gateway communicates with an STM32 board over UART, receives machine telemetry, exposes the data through ROS2, and provides ROS2 services to control the machine from a Qt/QML HMI or from the command line.
 
 ## Project Goal
 
@@ -17,49 +17,59 @@ This project demonstrates a small industrial-style embedded system using:
 * ROS2 services for machine control
 * systemd services for automatic startup
 * Robust startup when STM32 is offline
-* End-to-end telemetry from STM32 sensors to ROS2 topics
+* End-to-end telemetry from STM32 sensors to ROS2 topics and HMI
 
 ## System Architecture
 
 ```text
-+----------------------+
-| STM32 Machine I/O    |
-| - DHT sensor         |
-| - Load sensor        |
-| - Fan RPM            |
-| - Vibration sensor   |
-| - Emergency input    |
-| - Machine state      |
-| - UART protocol      |
-+----------+-----------+
-           |
-           | UART
-           |
-+----------v-----------+
-| Raspberry Pi 5       |
-| Yocto Linux          |
-|                      |
-| edge-gateway         |
-| - UART manager       |
-| - Protocol parser    |
-| - IPC server         |
-+----------+-----------+
-           |
-           | Unix sockets
-           |
-+----------v-----------+
-| ROS2 STM32 Bridge    |
-| - /machine/telemetry |
-| - ROS2 services      |
-+----------------------+
++--------------------------+
+| Qt/QML HMI               |
+| - Live telemetry display |
+| - Machine controls       |
+| - Threshold settings     |
++------------+-------------+
+             |
+             | ROS2 over Ethernet
+             v
++------------+-------------+
+| Raspberry Pi 5 Gateway   |
+| Yocto Linux              |
+|                          |
+| ros2-stm32-bridge        |
+| - /machine/telemetry     |
+| - ROS2 services          |
+|                          |
+| edge-gateway             |
+| - UART manager           |
+| - Protocol parser        |
+| - IPC server             |
++------------+-------------+
+             |
+             | USART1 / UART
+             v
++------------+-------------+
+| STM32 Machine I/O Node   |
+| - DHT11 telemetry        |
+| - Load telemetry         |
+| - ADXL345 vibration      |
+| - Fan PWM / RPM feedback |
+| - Emergency stop input   |
+| - Machine state/faults   |
++--------------------------+
 ```
 
-## Related Repository
+## Related Repositories
 
-The STM32 firmware used with this gateway is available here:
+STM32 firmware:
 
 ```text
 https://github.com/anasmansouri/stm32-machine-io-node
+```
+
+Qt/QML HMI:
+
+```text
+https://github.com/anasmansouri/machine-monitoring-hmi
 ```
 
 ## Main Components
@@ -89,6 +99,7 @@ Responsibilities:
 * Parse machine snapshots
 * Publish machine telemetry on ROS2 topic
 * Provide ROS2 services for machine control
+* Forward ROS2 service requests to the gateway command socket
 * Reconnect if the gateway socket is temporarily unavailable
 
 ### 3. machine-interfaces
@@ -98,7 +109,7 @@ Custom ROS2 interface package.
 It contains:
 
 * Custom telemetry message
-* Custom service for setting load thresholds
+* Generic threshold service used for load and vibration threshold configuration
 
 ## Telemetry Pipeline
 
@@ -111,6 +122,7 @@ STM32 sensors
   -> Unix socket JSON message
   -> ros2-stm32-bridge
   -> /machine/telemetry
+  -> Qt/QML HMI
 ```
 
 The gateway publishes JSON snapshots over IPC, for example:
@@ -154,7 +166,7 @@ Example ROS2 output:
 temperature: 27
 humidity: 62
 load: 28
-fan_rpm: 2100
+fan_rpm: 1200
 vibration_x_mg: 374
 vibration_y_mg: -724
 vibration_z_mg: -430
@@ -174,6 +186,29 @@ load_status: LOAD_OK
 /machine/stop_machine
 /machine/reset_fault
 /machine/set_load_threshold
+/machine/set_vibration_threshold
+```
+
+Command services use `std_srvs/srv/Trigger`:
+
+```text
+/machine/start_machine
+/machine/stop_machine
+/machine/reset_fault
+```
+
+Threshold services use `machine_interfaces/srv/SetThreshold`:
+
+```text
+/machine/set_load_threshold
+/machine/set_vibration_threshold
+```
+
+Example threshold request:
+
+```yaml
+warning: 2500
+fault: 3000
 ```
 
 ## UART Protocol
@@ -187,6 +222,7 @@ START_MACHINE
 STOP_MACHINE
 RESET_FAULT
 SET_LOAD_THRESHOLD:WARN=<value>;FAULT=<value>
+SET_VIBRATION_THRESHOLD:WARN=<value>;FAULT=<value>
 ```
 
 ### Example responses from STM32
@@ -197,7 +233,18 @@ ACK:START_MACHINE
 ACK:STOP_MACHINE
 ACK:RESET_FAULT
 ACK:SET_LOAD_THRESHOLD
+ACK:SET_VIBRATION_THRESHOLD
 NACK:UNKNOWN_CMD
+NACK:START_MACHINE:NOT_IDLE
+NACK:START_MACHINE:FAULT_EMERGENCY_STOP
+NACK:START_MACHINE:FAULT_VIBRATION_HIGH
+NACK:RESET_FAULT:NO_ACTIVE_FAULT
+NACK:RESET_FAULT:FAULT_EMERGENCY_STOP
+NACK:RESET_FAULT:FAULT_VIBRATION_HIGH
+NACK:SET_LOAD_THRESHOLD:INVALID_FORMAT
+NACK:SET_LOAD_THRESHOLD:INVALID_RANGE
+NACK:SET_VIBRATION_THRESHOLD:INVALID_FORMAT
+NACK:SET_VIBRATION_THRESHOLD:INVALID_RANGE
 STATUS:TEMP=27;HUM=62;LOAD=28;VIB_X=374;VIB_Y=-724;VIB_Z=-430;VIB_LEVEL=1528;fanRPM=1200;emergency_button=0;STATE=MACHINE_STATE_IDLE;FAULT=FAULT_NONE;OPERATING_MODE=AUTO_MODE;DHT_STATUS=DHT_OK;LOAD_STATUS=LOAD_OK
 ```
 
@@ -377,6 +424,7 @@ source /opt/ros/jazzy/setup.bash
 ros2 topic list
 ros2 topic echo /machine/telemetry
 ```
+
 ## Machine State
 
 The machine state is controlled by STM32 firmware. `IDLE` is the safe waiting state, `RUNNING` is normal operation, `WARNING` means the machine can still run but a threshold is close, and `FAULT` is a latched unsafe state. Emergency stop and hard faults have the highest priority and force the machine into `FAULT`.
@@ -389,8 +437,8 @@ stateDiagram-v2
     IDLE --> FAULT: START_MACHINE\nemergency or sensor fault active
 
     RUNNING --> IDLE: STOP_MACHINE
-    RUNNING --> WARNING: load/temp above\nwarning threshold
-    RUNNING --> FAULT: emergency stop\nsensor error\nload/temp fault
+    RUNNING --> WARNING: load/temp/vibration above\nwarning threshold
+    RUNNING --> FAULT: emergency stop\nsensor error\nload/temp/vibration fault
 
     WARNING --> RUNNING: values return\nbelow warning threshold
     WARNING --> IDLE: STOP_MACHINE
@@ -406,6 +454,7 @@ stateDiagram-v2
       the system becomes safe again.
     end note
 ```
+
 ## Hardware
 
 * Raspberry Pi 5
@@ -430,24 +479,32 @@ Flow control: None
 
 ## Current Status
 
-Implemented and tested:
+Implemented and tested / integrated:
 
 * STM32 to Raspberry Pi UART handshake with `PING`
 * Periodic `GET_STATUS` polling
 * Temperature, humidity, and load telemetry
 * ADXL345 vibration telemetry on X/Y/Z axes
+* Calculated vibration level field `VIB_LEVEL`
 * Fan RPM and emergency button fields in the protocol and ROS2 message
+* Emergency stop and vibration fault propagation from STM32 to ROS2
 * Edge gateway protocol parsing
 * IPC JSON broadcast
 * ROS2 `/machine/telemetry` publishing
 * ROS2 service forwarding for machine commands
+* Load threshold configuration through ROS2 service
+* Vibration threshold configuration through ROS2 service
+* systemd integration for automatic startup
+* Integration path toward Qt/QML HMI
 
 Planned next steps:
 
-* Add a single vibration level or vibration alert field
-* Add dashboard or HMI visualization
-* Add long-term metrics storage with InfluxDB/Grafana
-* Add OTA/FOTA update flow
+* Update the HMI to display all telemetry fields
+* Add vibration threshold controls to the HMI
+* Add demo screenshots and a short end-to-end video
+* Clean remaining debug logs before a polished demo
+* Optional future extension: long-term metrics storage with InfluxDB/Grafana
+* Optional future extension: OTA/FOTA update flow
 
 ## Skills Demonstrated
 
@@ -462,6 +519,7 @@ Planned next steps:
 * JSON telemetry bridge
 * ROS2 C++ nodes
 * Custom ROS2 messages and services
-* STM32 integration
-* Sensor telemetry integration
-* Robust reconnect and timeout handling
+* Cross-device ROS2 communication
+* Robust embedded startup behavior
+* Integration with STM32 firmware
+* Integration with Qt/QML HMI
