@@ -415,8 +415,6 @@ STM32 REPLIES : STATUS:TEMP=...
 Source ROS2 on the Yocto target:
 
 ```sh
-unset AMENT_SHELL
-unset AMENT_CURRENT_PREFIX
 . /opt/ros/jazzy/setup.sh
 export ROS_DOMAIN_ID=7
 export ROS_LOCALHOST_ONLY=0
