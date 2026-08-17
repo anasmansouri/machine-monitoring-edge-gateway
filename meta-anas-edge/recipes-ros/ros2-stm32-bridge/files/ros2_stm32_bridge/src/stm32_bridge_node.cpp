@@ -87,7 +87,8 @@ bool parseTelemetryJson(const std::string &json,
     msg.load_status = loadStatus;
 
     return true;
-}class Stm32BridgeNode : public rclcpp::Node
+}
+class Stm32BridgeNode : public rclcpp::Node
 {
 public:
     Stm32BridgeNode()
@@ -299,6 +300,7 @@ private:
             "SET_LOAD_THRESHOLD:WARN=" + std::to_string(request->warning) +
             ";FAULT=" + std::to_string(request->fault);
 
+        // maybe i can remove this part and replace it with :   handleCommandService(command, response);
         std::string reply = sendCommandToGateway(command);
 
         if (reply.empty())
@@ -325,6 +327,7 @@ private:
             "SET_VIBRATION_THRESHOLD:WARN=" + std::to_string(request->warning) +
             ";FAULT=" + std::to_string(request->fault);
 
+        // maybe i can remove this part and replace it with :   handleCommandService(command, response);
         std::string reply = sendCommandToGateway(command);
 
         if (reply.empty())
