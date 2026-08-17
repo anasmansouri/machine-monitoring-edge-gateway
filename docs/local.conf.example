@@ -307,6 +307,8 @@ CMDLINE_SERIAL = ""
 IMAGE_INSTALL:append = " edge-gateway"
 IMAGE_INSTALL:append = " ros2-stm32-bridge ros-core"
 IMAGE_INSTALL:append = " static-ethernet"
+# factory img + nfs client tool mount-nfs
+IMAGE_INSTALL:append = " factory-image nfs-utils"
 # to enable sshd service 
 SYSTEMD_AUTO_ENABLE:pn-dropbear = "enable"
 
