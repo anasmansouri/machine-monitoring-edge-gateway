@@ -22,16 +22,17 @@ int main()
 
     if (!uartManager.openUartDevice())
     {
-        return -1;
+        return 1;
     }
     if (!uartManager.configureUartDevice())
     {
-        return -1;
+        return 1;
     }
     sleep(3);
 
     // handschake
-    while (true)
+    bool handshake_succeeded = false;
+    for(int i=0;i<3;i++)
     {
         if (!uartManager.writeLine("PING"))
         {
@@ -51,9 +52,14 @@ int main()
         if (protocolParser.isAckandPing(response.unwrap()))
         {
             log << "PING received : " << std::endl;
+            handshake_succeeded =true;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    if(!handshake_succeeded){
+            log << "handshake failed after 3 attemptions" << std::endl;
+        return 1;
     }
 
     std::string cmd;
@@ -66,7 +72,7 @@ int main()
         {
             log << "writing fail " << std::endl
                 << std::flush;
-            return -1;
+            return 1;
         }
         log << "PI Sent : " << cmd << std::endl
             << std::flush;
@@ -76,7 +82,7 @@ int main()
     {
         log << "GET_STATUS read failed, going back to handshake" << std::endl
             << std::flush;
-        return -1;
+        return 1;
     }
     if (response)
     {
@@ -99,21 +105,21 @@ int main()
                 }
                 else
                 {
-                    return -1;
+                    return 1;
                 }
             }
             else
             {
                 log << "can't parse data" << std::endl
                     << std::flush;
-                return -1;
+                return 1;
             }
         }
         else
         {
             log << "can't parse data" << std::endl
                 << std::flush;
-            return -1;
+            return 1;
         }
     }
 }

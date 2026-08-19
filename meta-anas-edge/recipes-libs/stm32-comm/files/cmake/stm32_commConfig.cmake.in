@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(common_utils)
+
+include("${CMAKE_CURRENT_LIST_DIR}/stm32_commTargets.cmake")

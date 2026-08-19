@@ -43,10 +43,11 @@ fi
 
 log_msg "Step 3.1: Checking STM32 hardware"
 
-if  /usr/bin/factory-stm32-check ; then
+if  /usr/bin/factory-stm32-check >> "${REPORT_FILE}" 2>&1 ; then
     log_msg "PASS: stm32 board is tested"
 else
     log_msg "FAIL: stm32 board is damaged"
+    exit 1
 fi
 
 log_msg "Step 4: Preparing customer software mount point"

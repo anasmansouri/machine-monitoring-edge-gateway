@@ -2,43 +2,23 @@ cmake_minimum_required(VERSION 3.10)
 
 project(factory-stm32-check LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Compiler warnings 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -ftemplate-backtrace-limit=0 -fdiagnostics-color=always)
+    add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+find_package(stm32_comm REQUIRED)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -fno-omit-frame-pointer -fno-optimize-sibling-calls")
-set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
-
-# Utils module 
-add_library(general_utils 
-    utils/Result.hpp utils/Result.cpp
-)
-target_include_directories(
-    general_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# Manager module 
-add_library(manager
-    manager/uartManager.cpp manager/uartManager.hpp 
-    manager/protocolParser.cpp manager/protocolParser.hpp 
-)
-target_include_directories(
-    manager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-target_link_libraries(manager PUBLIC general_utils)
-
-# Main excutable
 add_executable(factory-stm32-check main.cpp)
 
-target_link_libraries(factory-stm32-check PUBLIC manager general_utils)
+target_link_libraries(factory-stm32-check
+    PRIVATE stm32_comm::stm32_comm
+)
 
 install(TARGETS factory-stm32-check
-        RUNTIME DESTINATION bin)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
