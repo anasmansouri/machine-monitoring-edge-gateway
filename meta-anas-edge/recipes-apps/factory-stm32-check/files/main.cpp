@@ -12,7 +12,6 @@
 #include <chrono>
 
 std::mutex uartMutex;
-// std::ofstream log("/var/log/factory-stm32-check.log", std::ios::app);
 std::ostream &log = std::cout;
 cc::manager::UartManager uartManager("/dev/ttyAMA0");
 cc::manager::ProtocolParser protocolParser;

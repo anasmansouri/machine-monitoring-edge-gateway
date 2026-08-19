@@ -41,6 +41,14 @@ else
     log_msg "FAIL: UART device /dev/ttyAMA0 not found"
 fi
 
+log_msg "Step 3.1: Checking STM32 hardware"
+
+if  /usr/bin/factory-stm32-check ; then
+    log_msg "PASS: stm32 board is tested"
+else
+    log_msg "FAIL: stm32 board is damaged"
+fi
+
 log_msg "Step 4: Preparing customer software mount point"
 
 mkdir -p /mnt/customer-software

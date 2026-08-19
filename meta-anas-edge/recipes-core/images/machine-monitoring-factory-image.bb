@@ -11,8 +11,8 @@ IMAGE_INSTALL += " \
     factory-image \
     factory-stm32-check \
     static-ethernet \
-    nfs-utils \
     iproute2 \
+    nfs-utils \
     util-linux \
     bash \
     kbd \
