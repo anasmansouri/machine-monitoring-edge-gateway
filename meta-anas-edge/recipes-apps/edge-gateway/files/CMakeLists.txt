@@ -16,30 +16,26 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -fno-omit-frame-pointer -fno-optimize-sibling
 set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 
-# Utils module 
-add_library(edge_utils 
-    utils/Result.hpp utils/Result.cpp
-)
-target_include_directories(
-    edge_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-)
+
+find_package(stm32_comm REQUIRED)
 
 # Manager module 
-add_library(edge_manager 
-    manager/uartManager.cpp manager/uartManager.hpp 
-    manager/protocolParser.cpp manager/protocolParser.hpp 
+add_library(edge_ip_server 
     manager/ipcServer.cpp manager/ipcServer.hpp
 )
 target_include_directories(
-    edge_manager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    edge_ip_server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(edge_manager PUBLIC edge_utils)
 
 # Main excutable
 add_executable(edge-gateway main.cpp)
 
-target_link_libraries(edge-gateway PUBLIC edge_manager edge_utils)
+target_link_libraries(edge-gateway
+    PRIVATE stm32_comm::stm32_comm
+)
+
+target_link_libraries(edge-gateway PUBLIC edge_ip_server)
 
 install(TARGETS edge-gateway
         RUNTIME DESTINATION bin)
