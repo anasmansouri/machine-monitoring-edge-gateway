@@ -17,7 +17,7 @@ inherit cmake
 
 
 DEPENDS +="common-utils"
-REDEPENDS:${PN} +="common-utils"
+RDEPENDS:${PN} +="common-utils"
 
 
 FILES:${PN} += "${libdir}/libstm32_comm.so.*"

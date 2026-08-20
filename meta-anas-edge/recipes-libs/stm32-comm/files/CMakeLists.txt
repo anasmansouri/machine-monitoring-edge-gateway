@@ -42,7 +42,7 @@ install(TARGETS stm32_comm
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY manager utils
+install(DIRECTORY manager 
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/stm32-comm
     FILES_MATCHING PATTERN "*.hpp"
 )
