@@ -58,7 +58,7 @@ int main()
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     if(!handshake_succeeded){
-            log << "handshake failed after 3 attemptions" << std::endl;
+            log << "handshake failed after 3 attempts" << std::endl;
         return 1;
     }
 
@@ -122,4 +122,5 @@ int main()
             return 1;
         }
     }
+    return 1;
 }
