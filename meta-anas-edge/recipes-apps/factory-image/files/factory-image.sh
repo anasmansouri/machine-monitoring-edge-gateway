@@ -14,6 +14,10 @@ EXPECTED_IMAGE_NAME=""
 EXPECTED_SHA256=""
 ACTUAL_SHA256=""
 
+DATA_MOUNT_POINT="/data"
+DATA_REPORT_DIR="${DATA_MOUNT_POINT}/factory-reports"
+DATA_PARTITION_LABEL="data"
+
 mkdir -p "${LOG_DIR}"
 
 log_msg()
@@ -26,6 +30,24 @@ log_msg "Step 1: Checking target environment"
 
 log_msg "Hostname: $(hostname)"
 log_msg "Kernel: $(uname -a)"
+
+log_msg "Step 1.1: Mounting permanent data partition"
+
+mkdir -p "${DATA_MOUNT_POINT}"
+
+if mountpoint -q "${DATA_MOUNT_POINT}"; then
+    log_msg "INFO: ${DATA_MOUNT_POINT} is already mounted"
+else
+    if mount LABEL="${DATA_PARTITION_LABEL}" "${DATA_MOUNT_POINT}"; then
+        log_msg "PASS: permanent data partition mounted at ${DATA_MOUNT_POINT}"
+    else
+        log_msg "FAIL: could not mount permanent data partition LABEL=${DATA_PARTITION_LABEL}"
+        exit 1
+    fi
+fi
+
+mkdir -p "${DATA_REPORT_DIR}"
+log_msg "PASS: factory report directory is ready: ${DATA_REPORT_DIR}"
 
 log_msg "Step 2: Checking Ethernet configuration"
 
@@ -128,6 +150,17 @@ fi
 
 log_msg "Step 8: Partition flashing not enabled yet"
 log_msg "Step 9: U-Boot boot target update not enabled yet"
+
+log_msg "Step 10: Saving factory report to permanent data partition"
+
+PERSISTENT_REPORT_FILE="${DATA_REPORT_DIR}/factory-image-$(date '+%Y%m%d-%H%M%S').log"
+
+if cp "${REPORT_FILE}" "${PERSISTENT_REPORT_FILE}"; then
+    log_msg "PASS: factory report saved to ${PERSISTENT_REPORT_FILE}"
+else
+    log_msg "FAIL: could not save factory report to permanent data partition"
+    exit 1
+fi
 
 log_msg "Factory Image finished safely"
 exit 0
