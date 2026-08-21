@@ -15,6 +15,7 @@ IMAGE_INSTALL += " \
     nfs-utils \
     util-linux \
     bash \
+    coreutils \
     kbd \
     socat \
 "
