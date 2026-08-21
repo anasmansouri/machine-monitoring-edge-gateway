@@ -3,6 +3,7 @@ DESCRIPTION = "Minimal Yocto image used for factory checks, NFS runtime image va
 LICENSE = "MIT"
 
 inherit core-image
+WKS_FILE = "machine-monitoring-factory-image.wks"
 
 IMAGE_FEATURES += "ssh-server-dropbear debug-tweaks"
 
