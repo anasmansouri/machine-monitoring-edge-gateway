@@ -10,13 +10,21 @@ NFS_EXPORT="/export/customer-software"
 MOUNT_POINT="/mnt/customer-software"
 MANIFEST_FILE="${MOUNT_POINT}/manifest.json"
 RUNTIME_IMAGE_FILE="${MOUNT_POINT}/runtime-rootfs.ext3"
+
 EXPECTED_IMAGE_NAME=""
 EXPECTED_SHA256=""
 ACTUAL_SHA256=""
 
 DATA_MOUNT_POINT="/data"
 DATA_REPORT_DIR="${DATA_MOUNT_POINT}/factory-reports"
-DATA_PARTITION_LABEL="data"
+DATA_PARTLABEL="data"
+DATA_DEVICE="/dev/disk/by-partlabel/${DATA_PARTLABEL}"
+
+RUNTIME_SLOT_A_PARTLABEL="runtimeA"
+RUNTIME_SLOT_A_DEVICE="/dev/disk/by-partlabel/${RUNTIME_SLOT_A_PARTLABEL}"
+RUNTIME_SLOT_A_REAL_DEVICE=""
+
+FLASHING_ENABLED="0"
 
 mkdir -p "${LOG_DIR}"
 
@@ -35,13 +43,18 @@ log_msg "Step 1.1: Mounting permanent data partition"
 
 mkdir -p "${DATA_MOUNT_POINT}"
 
+if [ ! -b "${DATA_DEVICE}" ]; then
+    log_msg "FAIL: data partition not found by GPT PARTLABEL=${DATA_PARTLABEL}"
+    exit 1
+fi
+
 if mountpoint -q "${DATA_MOUNT_POINT}"; then
     log_msg "INFO: ${DATA_MOUNT_POINT} is already mounted"
 else
-    if mount LABEL="${DATA_PARTITION_LABEL}" "${DATA_MOUNT_POINT}"; then
+    if mount "${DATA_DEVICE}" "${DATA_MOUNT_POINT}"; then
         log_msg "PASS: permanent data partition mounted at ${DATA_MOUNT_POINT}"
     else
-        log_msg "FAIL: could not mount permanent data partition LABEL=${DATA_PARTITION_LABEL}"
+        log_msg "FAIL: could not mount permanent data partition ${DATA_DEVICE}"
         exit 1
     fi
 fi
@@ -56,6 +69,7 @@ if ip addr show eth0 >/dev/null 2>&1; then
     ip addr show eth0 | tee -a "${REPORT_FILE}"
 else
     log_msg "FAIL: eth0 not available"
+    exit 1
 fi
 
 log_msg "Step 3: Checking STM32 UART device"
@@ -64,23 +78,22 @@ if [ -e /dev/ttyAMA0 ]; then
     log_msg "PASS: UART device /dev/ttyAMA0 exists"
 else
     log_msg "FAIL: UART device /dev/ttyAMA0 not found"
+    exit 1
 fi
 
 log_msg "Step 3.1: Checking STM32 hardware"
 
-if /usr/bin/factory-stm32-check >> "${REPORT_FILE}" 2>&1 ; then
+if /usr/bin/factory-stm32-check >> "${REPORT_FILE}" 2>&1; then
     log_msg "PASS: STM32 board passed factory hardware test"
 else
     log_msg "FAIL: STM32 board failed factory hardware test"
     exit 1
 fi
 
-
-
 log_msg "Step 4: Preparing customer software mount point"
 
-mkdir -p /mnt/customer-software
-log_msg "PASS: /mnt/customer-software is ready"
+mkdir -p "${MOUNT_POINT}"
+log_msg "PASS: ${MOUNT_POINT} is ready"
 
 log_msg "Step 5: Mounting customer software NFS export"
 
@@ -147,8 +160,63 @@ else
     exit 1
 fi
 
+log_msg "Step 8: Preparing runtime partition flashing target"
 
-log_msg "Step 8: Partition flashing not enabled yet"
+if [ ! -b "${RUNTIME_SLOT_A_DEVICE}" ]; then
+    log_msg "FAIL: runtimeA partition not found by GPT PARTLABEL=${RUNTIME_SLOT_A_PARTLABEL}"
+    exit 1
+fi
+
+RUNTIME_SLOT_A_REAL_DEVICE="$(readlink -f "${RUNTIME_SLOT_A_DEVICE}")"
+
+log_msg "Runtime slot A PARTLABEL: ${RUNTIME_SLOT_A_PARTLABEL}"
+log_msg "Runtime slot A device: ${RUNTIME_SLOT_A_REAL_DEVICE}"
+
+CURRENT_ROOT_DEVICE="$(findmnt -rn -o SOURCE /)"
+CURRENT_ROOT_REAL_DEVICE="$(readlink -f "${CURRENT_ROOT_DEVICE}")"
+
+log_msg "Current root device: ${CURRENT_ROOT_REAL_DEVICE}"
+
+if [ "${RUNTIME_SLOT_A_REAL_DEVICE}" = "${CURRENT_ROOT_REAL_DEVICE}" ]; then
+    log_msg "FAIL: runtime target is the currently booted root filesystem, refusing to flash"
+    exit 1
+fi
+
+RUNTIME_IMAGE_FILE_SIZE="$(stat -c%s "${RUNTIME_IMAGE_FILE}")"
+RUNTIME_SLOT_A_SIZE="$(blockdev --getsize64 "${RUNTIME_SLOT_A_REAL_DEVICE}")"
+
+log_msg "Runtime image size: ${RUNTIME_IMAGE_FILE_SIZE} bytes"
+log_msg "Runtime slot A partition size: ${RUNTIME_SLOT_A_SIZE} bytes"
+
+if [ "${RUNTIME_IMAGE_FILE_SIZE}" -gt "${RUNTIME_SLOT_A_SIZE}" ]; then
+    log_msg "FAIL: runtime image is larger than runtimeA partition, cannot flash"
+    exit 1
+fi
+
+log_msg "PASS: runtime image fits into runtimeA partition"
+
+if findmnt -rn -S "${RUNTIME_SLOT_A_REAL_DEVICE}" >/dev/null 2>&1; then
+    log_msg "FAIL: runtimeA partition ${RUNTIME_SLOT_A_REAL_DEVICE} is mounted, cannot flash"
+    exit 1
+fi
+
+log_msg "PASS: runtimeA partition is not mounted"
+
+if [ "${FLASHING_ENABLED}" != "1" ]; then
+    log_msg "DRY-RUN: flashing is disabled"
+    log_msg "DRY-RUN: would flash ${RUNTIME_IMAGE_FILE} to ${RUNTIME_SLOT_A_REAL_DEVICE}"
+else
+    log_msg "Flashing runtime image to ${RUNTIME_SLOT_A_REAL_DEVICE}"
+
+    if dd if="${RUNTIME_IMAGE_FILE}" of="${RUNTIME_SLOT_A_REAL_DEVICE}" bs=4M status=progress conv=fsync; then
+        sync
+        log_msg "PASS: runtime image flashed successfully"
+    else
+        log_msg "FAIL: problem while flashing runtime image"
+        exit 1
+    fi
+fi
+
 log_msg "Step 9: U-Boot boot target update not enabled yet"
 
 log_msg "Step 10: Saving factory report to permanent data partition"
