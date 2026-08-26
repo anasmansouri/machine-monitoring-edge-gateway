@@ -2,14 +2,14 @@
 # long-description: Creates a Raspberry Pi SD card image with a boot partition,
 # factory rootfs, empty runtime slots, and a permanent data partition.
 
-part /boot --source bootimg-partition --ondisk mmcblk0 --fstype=vfat --label boot --active --align 4096 --size 100
+part /boot --source bootimg-partition --ondisk mmcblk0 --fstype=vfat --label boot  --part-name boot --active --align 4096 --size 100
 
-part / --source rootfs --ondisk mmcblk0 --fstype=ext4 --label factory --align 4096
+part / --source rootfs --ondisk mmcblk0 --fstype=ext4 --label factory --part-name factory --align 4096
 
-part --ondisk mmcblk0 --fstype=ext4 --label runtimeA --align 4096 --size 1024
+part --ondisk mmcblk0 --fstype=ext4 --label runtimeA --part-name runtimeA  --align 4096 --size 1024
 
-part --ondisk mmcblk0 --fstype=ext4 --label runtimeB --align 4096 --size 1024
+part --ondisk mmcblk0 --fstype=ext4 --label runtimeB --part-name runtimeB --align 4096 --size 1024
 
-part --ondisk mmcblk0 --fstype=ext4 --label data --align 4096 --size 1024
+part --ondisk mmcblk0 --fstype=ext4 --label data --part-name data --align 4096 --size 1024
 
 bootloader --ptable gpt

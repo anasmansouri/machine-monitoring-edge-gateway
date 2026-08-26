@@ -24,7 +24,12 @@ RUNTIME_SLOT_A_PARTLABEL="runtimeA"
 RUNTIME_SLOT_A_DEVICE="/dev/disk/by-partlabel/${RUNTIME_SLOT_A_PARTLABEL}"
 RUNTIME_SLOT_A_REAL_DEVICE=""
 
-FLASHING_ENABLED="0"
+FLASHING_ENABLED="1"
+
+BOOT_SWITCH_ENABLED="1"
+BOOT_CMDLINE_FILE="/boot/cmdline.txt"
+BOOT_CMDLINE_BACKUP="/boot/cmdline.factory.backup"
+RUNTIME_SLOT_A_PARTUUID=""
 
 mkdir -p "${LOG_DIR}"
 
@@ -217,7 +222,47 @@ else
     fi
 fi
 
-log_msg "Step 9: U-Boot boot target update not enabled yet"
+log_msg "Step 9: Preparing boot target switch to runtimeA"
+
+RUNTIME_SLOT_A_PARTUUID="$(blkid -s PARTUUID -o value "${RUNTIME_SLOT_A_REAL_DEVICE}" || true)"
+
+if [ -z "${RUNTIME_SLOT_A_PARTUUID}" ]; then
+    log_msg "FAIL: could not read PARTUUID of runtimeA partition"
+    exit 1
+fi
+
+log_msg "Runtime slot A PARTUUID: ${RUNTIME_SLOT_A_PARTUUID}"
+
+if [ ! -f "${BOOT_CMDLINE_FILE}" ]; then
+    log_msg "FAIL: boot cmdline file not found: ${BOOT_CMDLINE_FILE}"
+    exit 1
+fi
+
+if ! grep -q "root=" "${BOOT_CMDLINE_FILE}"; then
+    log_msg "FAIL: root= entry not found in ${BOOT_CMDLINE_FILE}"
+    exit 1
+fi
+
+log_msg "Current boot cmdline:"
+cat "${BOOT_CMDLINE_FILE}" | tee -a "${REPORT_FILE}"
+
+if [ "${BOOT_SWITCH_ENABLED}" != "1" ]; then
+    log_msg "DRY-RUN: boot switch is disabled"
+    log_msg "DRY-RUN: would replace root=... with root=PARTUUID=${RUNTIME_SLOT_A_PARTUUID}"
+else
+    log_msg "Switching boot target to runtimeA"
+
+    cp "${BOOT_CMDLINE_FILE}" "${BOOT_CMDLINE_BACKUP}"
+
+    sed "s#root=[^ ]*#root=PARTUUID=${RUNTIME_SLOT_A_PARTUUID}#" \
+        "${BOOT_CMDLINE_BACKUP}" > "${BOOT_CMDLINE_FILE}"
+
+    sync
+
+    log_msg "PASS: boot target switched to runtimeA"
+    log_msg "Updated boot cmdline:"
+    cat "${BOOT_CMDLINE_FILE}" | tee -a "${REPORT_FILE}"
+fi
 
 log_msg "Step 10: Saving factory report to permanent data partition"
 
