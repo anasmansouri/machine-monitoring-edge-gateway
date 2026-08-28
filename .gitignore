@@ -2,6 +2,7 @@
 poky/
 meta-raspberrypi/
 meta-openembedded/
+meta-lts-mixins/
 meta-ros/
 build/
 downloads/
