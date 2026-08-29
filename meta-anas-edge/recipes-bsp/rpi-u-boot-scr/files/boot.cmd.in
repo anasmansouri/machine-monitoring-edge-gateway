@@ -1,0 +1,52 @@
+echo "Machine Monitoring: U-Boot A/B boot selection"
+
+# 1. Prepare Device Tree
+fdt addr ${fdt_addr}
+
+# 2. Default to factory if boot_slot is unset
+if env exists boot_slot; then
+    echo "boot_slot from environment: ${boot_slot}"
+else
+    echo "boot_slot not set, defaulting to factory"
+    setenv boot_slot factory
+fi
+
+# 3. Map slots to partitions
+if test "${boot_slot}" = "runtimeA"; then
+    setenv rootpart 3
+elif test "${boot_slot}" = "runtimeB"; then
+    setenv rootpart 4
+else
+    echo "Using factory slot"
+    setenv boot_slot factory
+    setenv rootpart 2
+fi
+
+echo "Selected boot_slot: ${boot_slot}"
+echo "Selected root partition: @@BOOT_MEDIA@@ 0:${rootpart}"
+
+# 4. Get dynamic PARTUUID
+part uuid @@BOOT_MEDIA@@ 0:${rootpart} rootuuid
+
+if test -z "${rootuuid}"; then
+    echo "ERROR: could not read PARTUUID for @@BOOT_MEDIA@@ 0:${rootpart}"
+    echo "Falling back to factory partition p2"
+    setenv boot_slot factory
+    setenv rootpart 2
+    part uuid @@BOOT_MEDIA@@ 0:2 rootuuid
+fi
+
+echo "Selected root PARTUUID: ${rootuuid}"
+
+# 5. Build clean kernel bootargs
+setenv bootargs "dwc_otg.lpm_enable=0 root=PARTUUID=${rootuuid} rootfstype=ext4 rootwait net.ifnames=0"
+
+# 6. Save U-Boot environment file if missing
+if test ! -e @@BOOT_MEDIA@@ 0:1 uboot.env; then
+    echo "uboot.env missing, saving default environment"
+    saveenv
+fi
+
+# 7. Load and boot kernel
+fatload @@BOOT_MEDIA@@ 0:1 ${kernel_addr_r} @@KERNEL_IMAGETYPE@@
+@@KERNEL_BOOTCMD@@ ${kernel_addr_r} - ${fdt_addr}

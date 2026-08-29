@@ -19,4 +19,5 @@ IMAGE_INSTALL += " \
     coreutils \
     kbd \
     socat \
+    libubootenv-bin \
 "

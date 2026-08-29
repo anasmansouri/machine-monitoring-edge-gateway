@@ -31,6 +31,10 @@ BOOT_CMDLINE_FILE="/boot/cmdline.txt"
 BOOT_CMDLINE_BACKUP="/boot/cmdline.factory.backup"
 RUNTIME_SLOT_A_PARTUUID=""
 
+UBOOT_ENV_TOOL="/usr/bin/fw_setenv"
+UBOOT_PRINT_TOOL="/usr/bin/fw_printenv"
+TARGET_BOOT_SLOT="runtimeA"
+
 mkdir -p "${LOG_DIR}"
 
 log_msg()
@@ -222,46 +226,50 @@ else
     fi
 fi
 
-log_msg "Step 9: Preparing boot target switch to runtimeA"
+log_msg "Step 9: Preparing U-Boot boot target switch to ${TARGET_BOOT_SLOT}"
 
-RUNTIME_SLOT_A_PARTUUID="$(blkid -s PARTUUID -o value "${RUNTIME_SLOT_A_REAL_DEVICE}" || true)"
-
-if [ -z "${RUNTIME_SLOT_A_PARTUUID}" ]; then
-    log_msg "FAIL: could not read PARTUUID of runtimeA partition"
+if [ ! -x "${UBOOT_ENV_TOOL}" ]; then
+    log_msg "FAIL: fw_setenv not found or not executable: ${UBOOT_ENV_TOOL}"
     exit 1
 fi
 
-log_msg "Runtime slot A PARTUUID: ${RUNTIME_SLOT_A_PARTUUID}"
-
-if [ ! -f "${BOOT_CMDLINE_FILE}" ]; then
-    log_msg "FAIL: boot cmdline file not found: ${BOOT_CMDLINE_FILE}"
+if [ ! -x "${UBOOT_PRINT_TOOL}" ]; then
+    log_msg "FAIL: fw_printenv not found or not executable: ${UBOOT_PRINT_TOOL}"
     exit 1
 fi
 
-if ! grep -q "root=" "${BOOT_CMDLINE_FILE}"; then
-    log_msg "FAIL: root= entry not found in ${BOOT_CMDLINE_FILE}"
+if [ ! -f "/etc/fw_env.config" ]; then
+    log_msg "FAIL: /etc/fw_env.config not found"
     exit 1
 fi
 
-log_msg "Current boot cmdline:"
-cat "${BOOT_CMDLINE_FILE}" | tee -a "${REPORT_FILE}"
+log_msg "Current U-Boot boot_slot value:"
+if "${UBOOT_PRINT_TOOL}" boot_slot >> "${REPORT_FILE}" 2>&1; then
+    "${UBOOT_PRINT_TOOL}" boot_slot | while read -r line; do
+        log_msg "${line}"
+    done
+else
+    log_msg "boot_slot is currently not set"
+fi
 
 if [ "${BOOT_SWITCH_ENABLED}" != "1" ]; then
     log_msg "DRY-RUN: boot switch is disabled"
-    log_msg "DRY-RUN: would replace root=... with root=PARTUUID=${RUNTIME_SLOT_A_PARTUUID}"
+    log_msg "DRY-RUN: would run: fw_setenv boot_slot ${TARGET_BOOT_SLOT}"
 else
-    log_msg "Switching boot target to runtimeA"
+    log_msg "Switching U-Boot boot target to ${TARGET_BOOT_SLOT}"
 
-    cp "${BOOT_CMDLINE_FILE}" "${BOOT_CMDLINE_BACKUP}"
-
-    sed "s#root=[^ ]*#root=PARTUUID=${RUNTIME_SLOT_A_PARTUUID}#" \
-        "${BOOT_CMDLINE_BACKUP}" > "${BOOT_CMDLINE_FILE}"
+    if ! "${UBOOT_ENV_TOOL}" boot_slot "${TARGET_BOOT_SLOT}"; then
+        log_msg "FAIL: could not set U-Boot boot_slot=${TARGET_BOOT_SLOT}"
+        exit 1
+    fi
 
     sync
 
-    log_msg "PASS: boot target switched to runtimeA"
-    log_msg "Updated boot cmdline:"
-    cat "${BOOT_CMDLINE_FILE}" | tee -a "${REPORT_FILE}"
+    log_msg "PASS: U-Boot boot target switched to ${TARGET_BOOT_SLOT}"
+    log_msg "Updated U-Boot boot_slot value:"
+    "${UBOOT_PRINT_TOOL}" boot_slot | while read -r line; do
+        log_msg "${line}"
+    done
 fi
 
 log_msg "Step 10: Saving factory report to permanent data partition"
