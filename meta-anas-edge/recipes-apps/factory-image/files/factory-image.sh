@@ -79,10 +79,10 @@ fi
 
 log_msg "Step 3: Checking STM32 UART device"
 
-if [ -e /dev/ttyAMA0 ]; then
-    log_msg "PASS: UART device /dev/ttyAMA0 exists"
+if [ -e /dev/ttyAMA2 ]; then
+    log_msg "PASS: UART device /dev/ttyAMA2 exists"
 else
-    log_msg "FAIL: UART device /dev/ttyAMA0 not found"
+    log_msg "FAIL: UART device /dev/ttyAMA2 not found"
     exit 1
 fi
 

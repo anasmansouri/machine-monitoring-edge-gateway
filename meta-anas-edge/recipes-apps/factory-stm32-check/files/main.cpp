@@ -13,7 +13,7 @@
 
 std::mutex uartMutex;
 std::ostream &log = std::cout;
-cc::manager::UartManager uartManager("/dev/ttyAMA0");
+cc::manager::UartManager uartManager("/dev/ttyAMA2");
 cc::manager::ProtocolParser protocolParser;
 
 std::string command_to_send_back;
