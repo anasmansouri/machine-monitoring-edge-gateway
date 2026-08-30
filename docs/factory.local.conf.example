@@ -296,19 +296,22 @@ LICENSE_FLAGS_ACCEPTED += "synaptics-killswitch"
 
 # 1. Keep the hardware UART enabled
 ENABLE_UART = "1"
+# to activate uart2
+RPI_EXTRA_CONFIG:append = "\ndtoverlay=uart2-pi5\n"
 
 # 2. Disable the systemd serial login prompt (getty)
 SERIAL_CONSOLES = ""
+#SERIAL_CONSOLES = "115200;ttyAMA0"
+
 
 # 3. Remove the serial console from the kernel command line (cmdline.txt)
 # meta-raspberrypi uses CMDLINE_SERIAL to define these parameters.
 CMDLINE_SERIAL = ""
+#CMDLINE_SERIAL = "console=ttyAMA0,115200"
 
 #IMAGE_INSTALL:append = " edge-gateway"
 #IMAGE_INSTALL:append = " ros2-stm32-bridge ros-core"
 #IMAGE_INSTALL:append = " static-ethernet"
-# factory img + nfs client tool mount-nfs
-#IMAGE_INSTALL:append = " factory-image nfs-utils"
 # to enable sshd service 
 SYSTEMD_AUTO_ENABLE:pn-dropbear = "enable"
 
@@ -319,3 +322,12 @@ DISTRO_FEATURES_BACKFILL_CONSIDERED += "sysvinit"
 # for german keyboard layout 
 IMAGE_INSTALL:append = " kbd"
 IMAGE_INSTALL:append = " socat"
+
+# Test Raspberry Pi boot through U-Boot
+RPI_USE_U_BOOT = "1"
+
+
+PREFERRED_PROVIDER_virtual/bootloader = "u-boot"
+
+KERNEL_IMAGETYPE_UBOOT = "Image"
+KERNEL_BOOTCMD = "booti"
